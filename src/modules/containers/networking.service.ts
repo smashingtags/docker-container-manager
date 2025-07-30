@@ -3,7 +3,8 @@ import { PortMapping, VolumeMapping, ValidationResult, ValidationError } from '@
 import { 
   validatePortConfiguration, 
   validateVolumeConfiguration, 
-  validateNetworkCompatibility 
+  validateNetworkCompatibility,
+  validateNetworkConfiguration
 } from '@/utils/validation';
 import { logger } from '@/utils/logger';
 
@@ -69,30 +70,32 @@ export class NetworkingServiceImpl implements NetworkingService {
       // Additional host path validation
       const pathValidationErrors: ValidationError[] = [];
       
-      for (let i = 0; i < volumes.length; i++) {
-        const volume = volumes[i];
-        try {
-          const pathInfo = await this.dockerService.validateHostPath(volume.hostPath);
-          
-          if (!pathInfo.exists) {
+      if (result.data) {
+        for (let i = 0; i < result.data.length; i++) {
+          const volume = result.data[i];
+          try {
+            const pathInfo = await this.dockerService.validateHostPath(volume.hostPath);
+            
+            if (!pathInfo.exists) {
+              pathValidationErrors.push({
+                field: `volumes[${i}].hostPath`,
+                message: `Host path '${volume.hostPath}' does not exist`,
+                value: volume.hostPath
+              });
+            } else if (!pathInfo.accessible) {
+              pathValidationErrors.push({
+                field: `volumes[${i}].hostPath`,
+                message: `Host path '${volume.hostPath}' is not accessible`,
+                value: volume.hostPath
+              });
+            }
+          } catch (error) {
             pathValidationErrors.push({
               field: `volumes[${i}].hostPath`,
-              message: `Host path '${volume.hostPath}' does not exist`,
-              value: volume.hostPath
-            });
-          } else if (!pathInfo.accessible) {
-            pathValidationErrors.push({
-              field: `volumes[${i}].hostPath`,
-              message: `Host path '${volume.hostPath}' is not accessible`,
+              message: `Failed to validate host path '${volume.hostPath}': ${error}`,
               value: volume.hostPath
             });
           }
-        } catch (error) {
-          pathValidationErrors.push({
-            field: `volumes[${i}].hostPath`,
-            message: `Failed to validate host path '${volume.hostPath}': ${error}`,
-            value: volume.hostPath
-          });
         }
       }
 
@@ -119,7 +122,14 @@ export class NetworkingServiceImpl implements NetworkingService {
     try {
       logger.debug('Validating network configuration', { networks });
       
-      // Get available networks
+      // First validate basic network configuration (format, duplicates, etc.)
+      const basicValidation = validateNetworkConfiguration(networks);
+      if (!basicValidation.isValid) {
+        logger.warn('Network configuration validation failed', { errors: basicValidation.errors });
+        return basicValidation;
+      }
+      
+      // Get available networks for compatibility check
       const availableNetworks = await this.getAvailableNetworks();
       
       // Validate network compatibility
@@ -182,9 +192,10 @@ export class NetworkingServiceImpl implements NetworkingService {
       
       const usedPorts = await this.getUsedPorts();
       const usedPortsSet = new Set(usedPorts);
+      const reservedPorts = [22, 80, 443, 3306, 5432, 6379, 27017];
       
-      // If preferred port is specified and available, use it
-      if (preferredPort && !usedPortsSet.has(preferredPort)) {
+      // If preferred port is specified, check if it's available and not reserved
+      if (preferredPort && !usedPortsSet.has(preferredPort) && !reservedPorts.includes(preferredPort)) {
         logger.debug('Preferred port is available', { port: preferredPort });
         return preferredPort;
       }
@@ -194,13 +205,9 @@ export class NetworkingServiceImpl implements NetworkingService {
       const maxPort = 65535;
       
       for (let port = startPort; port <= maxPort; port++) {
-        if (!usedPortsSet.has(port)) {
-          // Skip commonly reserved ports
-          const reservedPorts = [22, 80, 443, 3306, 5432, 6379, 27017];
-          if (!reservedPorts.includes(port)) {
-            logger.debug('Found available port', { port });
-            return port;
-          }
+        if (!usedPortsSet.has(port) && !reservedPorts.includes(port)) {
+          logger.debug('Found available port', { port });
+          return port;
         }
       }
       
