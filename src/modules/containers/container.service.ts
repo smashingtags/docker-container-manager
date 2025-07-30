@@ -1,7 +1,7 @@
 import { Container, ContainerConfig, ContainerStats, LogOptions } from '@/types/container.types';
 import { DockerService } from '@/services/docker.service';
 import { NetworkingService } from './networking.service';
-import { validateCompleteContainerConfig } from './container.validation';
+import { validateContainerConfig } from './container.validation';
 import { logger } from '@/utils/logger';
 
 export interface ContainerService {
@@ -50,9 +50,9 @@ export class ContainerServiceImpl implements ContainerService {
       logger.debug('Creating container', { name: config.name, image: config.image });
       
       // Validate configuration
-      const validation = validateCompleteContainerConfig(config);
+      const validation = validateContainerConfig(config);
       if (!validation.isValid) {
-        const errorMessage = validation.errors.map(e => e.message).join(', ');
+        const errorMessage = validation.errors.map((e: any) => e.message).join(', ');
         throw new ContainerServiceError(`Invalid container configuration: ${errorMessage}`);
       }
 
@@ -76,16 +76,7 @@ export class ContainerServiceImpl implements ContainerService {
           }
         }
 
-        // Validate network configuration
-        if (config.networks && config.networks.length > 0) {
-          const networkValidation = await this.networkingService.validateNetworkConfiguration(config.networks);
-          if (!networkValidation.isValid) {
-            const errorMessage = networkValidation.errors.map(e => e.message).join(', ');
-            throw new ContainerServiceError(`Network configuration invalid: ${errorMessage}`);
-          }
-        }
-
-        // Create custom networks if they don't exist
+        // Create custom networks if they don't exist (before validation)
         for (const network of config.networks || []) {
           if (!['bridge', 'host', 'none'].includes(network)) {
             try {
@@ -96,6 +87,15 @@ export class ContainerServiceImpl implements ContainerService {
                 error: error instanceof Error ? error.message : error 
               });
             }
+          }
+        }
+
+        // Validate network configuration
+        if (config.networks && config.networks.length > 0) {
+          const networkValidation = await this.networkingService.validateNetworkConfiguration(config.networks);
+          if (!networkValidation.isValid) {
+            const errorMessage = networkValidation.errors.map(e => e.message).join(', ');
+            throw new ContainerServiceError(`Network configuration invalid: ${errorMessage}`);
           }
         }
       }

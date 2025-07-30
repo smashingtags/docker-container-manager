@@ -232,6 +232,11 @@ describe('NetworkingService', () => {
     it('should detect duplicate network names', async () => {
       const networks = ['bridge', 'bridge']; // Duplicate
 
+      // Mock getAvailableNetworks to avoid Docker call
+      mockDockerService.listNetworks.mockResolvedValue([
+        { id: '1', name: 'bridge', driver: 'bridge', scope: 'local' }
+      ]);
+
       const result = await networkingService.validateNetworkConfiguration(networks);
 
       expect(result.isValid).toBe(false);
@@ -241,6 +246,11 @@ describe('NetworkingService', () => {
 
     it('should validate network name formats', async () => {
       const networks = ['invalid-network-name!', '123invalid']; // Invalid characters
+
+      // Mock getAvailableNetworks to avoid Docker call
+      mockDockerService.listNetworks.mockResolvedValue([
+        { id: '1', name: 'bridge', driver: 'bridge', scope: 'local' }
+      ]);
 
       const result = await networkingService.validateNetworkConfiguration(networks);
 
