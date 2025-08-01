@@ -1,7 +1,22 @@
 import { AppStoreServiceImpl } from './appstore.service';
 import { TemplateServiceImpl } from './template.service';
+import { ContainerService } from '@/modules/containers';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+
+// Mock container service for integration tests
+const mockContainerService: jest.Mocked<ContainerService> = {
+  list: jest.fn(),
+  create: jest.fn(),
+  start: jest.fn(),
+  stop: jest.fn(),
+  restart: jest.fn(),
+  remove: jest.fn(),
+  getLogs: jest.fn(),
+  getStats: jest.fn(),
+  getContainerById: jest.fn(),
+  monitorContainerStatus: jest.fn()
+};
 
 describe('AppStore Integration', () => {
   let appStoreService: AppStoreServiceImpl;
@@ -13,7 +28,7 @@ describe('AppStore Integration', () => {
     try {
       await fs.access(testTemplatesPath);
       templateService = new TemplateServiceImpl('templates');
-      appStoreService = new AppStoreServiceImpl(templateService);
+      appStoreService = new AppStoreServiceImpl(mockContainerService, templateService);
     } catch (error) {
       console.warn('Templates directory not found, skipping integration tests');
     }

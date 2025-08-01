@@ -1,5 +1,6 @@
 import { AppStoreServiceImpl } from './appstore.service';
 import { TemplateService } from './template.service';
+import { ContainerService } from '@/modules/containers';
 import { AppTemplate, AppCategory } from '@/types/app.types';
 
 // Mock the template service
@@ -13,11 +14,25 @@ const mockTemplateService: jest.Mocked<TemplateService> = {
   parseTemplateFile: jest.fn()
 };
 
+// Mock the container service
+const mockContainerService: jest.Mocked<ContainerService> = {
+  list: jest.fn(),
+  create: jest.fn(),
+  start: jest.fn(),
+  stop: jest.fn(),
+  restart: jest.fn(),
+  remove: jest.fn(),
+  getLogs: jest.fn(),
+  getStats: jest.fn(),
+  getContainerById: jest.fn(),
+  monitorContainerStatus: jest.fn()
+};
+
 describe('AppStoreService', () => {
   let appStoreService: AppStoreServiceImpl;
 
   beforeEach(() => {
-    appStoreService = new AppStoreServiceImpl(mockTemplateService);
+    appStoreService = new AppStoreServiceImpl(mockContainerService, mockTemplateService);
     jest.clearAllMocks();
   });
 
@@ -268,7 +283,39 @@ describe('AppStoreService', () => {
   });
 
   describe('deployApp', () => {
-    it('should throw not implemented error', async () => {
+    it('should deploy app successfully', async () => {
+      const deployConfig = {
+        name: 'test-nginx',
+        environment: { 'CUSTOM_VAR': 'value' },
+        ports: [{ hostPort: 8080, containerPort: 80, protocol: 'tcp' as const }],
+        volumes: [],
+        networks: [],
+        resources: {}
+      };
+
+      const mockContainer = {
+        id: 'container-123',
+        name: 'test-nginx',
+        status: 'running' as const,
+        image: 'nginx:latest',
+        created: new Date(),
+        ports: [],
+        volumes: []
+      };
+
+      mockTemplateService.loadTemplate.mockResolvedValue(mockTemplate);
+      mockContainerService.create.mockResolvedValue(mockContainer);
+      mockContainerService.start.mockResolvedValue();
+
+      const result = await appStoreService.deployApp('nginx', deployConfig);
+
+      expect(result).toEqual(mockContainer);
+      expect(mockTemplateService.loadTemplate).toHaveBeenCalledWith('nginx');
+      expect(mockContainerService.create).toHaveBeenCalled();
+      expect(mockContainerService.start).toHaveBeenCalledWith('container-123');
+    });
+
+    it('should handle deployment errors', async () => {
       const deployConfig = {
         name: 'test-nginx',
         environment: {},
@@ -278,8 +325,11 @@ describe('AppStoreService', () => {
         resources: {}
       };
 
+      mockTemplateService.loadTemplate.mockResolvedValue(mockTemplate);
+      mockContainerService.create.mockRejectedValue(new Error('Container creation failed'));
+
       await expect(appStoreService.deployApp('nginx', deployConfig))
-        .rejects.toThrow('Not implemented');
+        .rejects.toThrow('Failed to deploy app \'nginx\' as container \'test-nginx\'');
     });
   });
 

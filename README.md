@@ -290,17 +290,104 @@ interface NetworkingService {
 - **Enhanced Test Isolation**: Improved test architecture by properly mocking validation utilities, ensuring better test isolation and more reliable test execution. This prevents external dependencies from affecting test results and improves overall test performance.
 - **Advanced Integration Testing**: Comprehensive integration tests now include real file system operations for volume validation, multi-container port conflict scenarios, mixed protocol configurations (TCP/UDP), reserved port handling, complex volume mapping with nested directories, and custom network creation with different drivers.
 
-## App Template System
+## App Store Service Implementation
 
-The template system provides a comprehensive solution for managing Docker application templates with validation, caching, and category management:
+The AppStoreService provides a complete app store experience for discovering and deploying containerized applications:
 
 ### Key Features
-- **Template Loading**: Efficient loading and caching of JSON-based app templates
+- **App Discovery**: Browse apps by category or search across all available applications
+- **Template Integration**: Seamless integration with the template service for app metadata
+- **Container Deployment**: Complete deployment workflow from app selection to running container
+- **Configuration Mapping**: Intelligent mapping of app templates to container configurations
+- **Dependency Injection**: Constructor-based dependency injection for container service integration
+- **Error Handling**: Custom error types with detailed error messages and original error preservation
+- **Logging**: Comprehensive logging throughout the deployment process for debugging and monitoring
+
+### AppStoreService API
+
+```typescript
+interface AppStoreService {
+  getApps(category?: string): Promise<App[]>;
+  searchApps(query: string): Promise<App[]>;
+  getAppDetails(id: string): Promise<AppDetails>;
+  getCategories(): Promise<AppCategory[]>;
+  deployApp(appId: string, config: DeployConfig): Promise<Container>;
+  getAppTemplate(id: string): Promise<AppTemplate>;
+}
+```
+
+### Deployment Process
+
+The `deployApp` method implements a complete deployment workflow:
+
+1. **Template Loading**: Load the app template using the template service
+2. **Configuration Mapping**: Map template defaults and user configuration to container config
+3. **Container Creation**: Create the container using the container service
+4. **Container Startup**: Automatically start the newly created container
+5. **Labeling**: Add app store specific labels for tracking and management
+6. **Error Handling**: Comprehensive error handling with detailed logging
+
+### Configuration Mapping Features
+
+- **Environment Variables**: Merge template defaults with user-provided environment variables
+- **Port Mappings**: Use user configuration with fallback to template defaults, including port descriptions
+- **Volume Mounts**: Support user-defined volumes with fallback to template defaults, including volume descriptions
+- **Network Configuration**: Flexible network configuration with template defaults
+- **Resource Limits**: Merge resource limits from template and user configuration
+- **Metadata Preservation**: Preserve template metadata in container labels for tracking
+- **Smart Defaults**: Intelligent default values for restart policy, resource limits, and other configuration
+
+### Error Handling
+
+The service uses custom error types for better error handling:
+
+```typescript
+export class AppStoreServiceError extends Error {
+  constructor(message: string, public originalError?: Error) {
+    super(message);
+    this.name = 'AppStoreServiceError';
+  }
+}
+```
+
+### Testing Coverage
+
+The AppStoreService includes comprehensive unit tests covering:
+- **App Discovery**: Browse and search functionality with category filtering
+- **Template Integration**: Template loading and validation
+- **Deployment Workflow**: Complete deployment process with configuration mapping
+- **Error Scenarios**: Error handling for invalid templates, deployment failures, and service errors
+- **Configuration Mapping**: Template-to-container configuration conversion with all supported options
+- **Dependency Injection**: Constructor-based service dependencies and mocking
+
+## App Store System
+
+The app store system provides a complete solution for discovering, configuring, and deploying containerized applications with an intuitive app store experience:
+
+### Key Features
+- **App Discovery**: Browse and search available applications with category filtering
+- **Template Management**: Efficient loading and caching of JSON-based app templates
+- **App Deployment**: Complete deployment workflow from template to running container
+- **Configuration Mapping**: Intelligent mapping of app templates to container configurations
 - **Category Management**: Automatic categorization with app counts and fallback generation
 - **Search Functionality**: Multi-field search across names, descriptions, tags, and authors
 - **Validation**: Comprehensive Joi-based template validation with detailed error reporting
 - **Caching**: In-memory caching for improved performance with cache management methods
 - **File System Integration**: Robust file parsing with JSON validation and error handling
+- **Logging**: Comprehensive logging for deployment tracking and debugging
+
+### App Store Service API
+
+```typescript
+interface AppStoreService {
+  getApps(category?: string): Promise<App[]>;
+  searchApps(query: string): Promise<App[]>;
+  getAppDetails(id: string): Promise<AppDetails>;
+  getCategories(): Promise<AppCategory[]>;
+  deployApp(appId: string, config: DeployConfig): Promise<Container>;
+  getAppTemplate(id: string): Promise<AppTemplate>;
+}
+```
 
 ### Template Service API
 
@@ -315,6 +402,17 @@ interface TemplateService {
   parseTemplateFile(filePath: string): Promise<AppTemplate>;
 }
 ```
+
+### App Deployment Workflow
+
+The app store service provides a complete deployment workflow:
+
+1. **Template Loading**: Load app template with default configuration
+2. **Configuration Mapping**: Map template and user config to container configuration
+3. **Container Creation**: Create container using the container service
+4. **Container Startup**: Automatically start the deployed container
+5. **Logging**: Track deployment progress and results
+6. **Error Handling**: Comprehensive error handling with detailed error messages
 
 ### Template Structure
 App templates are JSON files with the following structure:
@@ -472,8 +570,9 @@ This project is currently in development. The following foundation tasks are com
 - **Networking Service**: Complete networking and storage validation with port conflict detection, host path validation, and network management
 - **Container Service**: Full container lifecycle management with integrated networking validation and comprehensive configuration validation
 - **App Template System**: Complete template service implementation with validation, caching, and category management
+- **App Store Service**: Complete app store service with app discovery, deployment workflow, and container integration
 - **Integration Testing**: Advanced integration tests with real file system operations, multi-container scenarios, and comprehensive validation coverage
-- **Next Steps**: App store service, monitoring system, and REST API endpoints
+- **Next Steps**: Monitoring system and REST API endpoints
 
 See the [tasks.md](.kiro/specs/docker-container-manager/tasks.md) file for detailed implementation progress.
 
