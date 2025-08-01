@@ -1,0 +1,201 @@
+{
+  "id": "plex",
+  "name": "Plex Media Server",
+  "description": "Stream movies, TV shows, music, and photos to any device",
+  "category": "media",
+  "icon": "https://www.plex.tv/wp-content/themes/plex/assets/img/plex-logo.svg",
+  "version": "1.0.0",
+  "image": "plexinc/pms-docker",
+  "defaultConfig": {
+    "name": "plex",
+    "image": "plexinc/pms-docker",
+    "tag": "latest",
+    "environment": {
+      "PLEX_CLAIM": "claim-token-here",
+      "ADVERTISE_IP": "http://192.168.1.100:32400/",
+      "ALLOWED_NETWORKS": "192.168.1.0/24"
+    },
+    "ports": [
+      {
+        "hostPort": 32400,
+        "containerPort": 32400,
+        "protocol": "tcp",
+        "description": "Plex web interface"
+      },
+      {
+        "hostPort": 3005,
+        "containerPort": 3005,
+        "protocol": "tcp",
+        "description": "Plex companion"
+      },
+      {
+        "hostPort": 8324,
+        "containerPort": 8324,
+        "protocol": "tcp",
+        "description": "Roku via Plex companion"
+      },
+      {
+        "hostPort": 32469,
+        "containerPort": 32469,
+        "protocol": "tcp",
+        "description": "Plex DLNA server"
+      },
+      {
+        "hostPort": 1900,
+        "containerPort": 1900,
+        "protocol": "udp",
+        "description": "Plex DLNA server"
+      },
+      {
+        "hostPort": 32410,
+        "containerPort": 32410,
+        "protocol": "udp",
+        "description": "GDM network discovery"
+      },
+      {
+        "hostPort": 32412,
+        "containerPort": 32412,
+        "protocol": "udp",
+        "description": "GDM network discovery"
+      },
+      {
+        "hostPort": 32413,
+        "containerPort": 32413,
+        "protocol": "udp",
+        "description": "GDM network discovery"
+      },
+      {
+        "hostPort": 32414,
+        "containerPort": 32414,
+        "protocol": "udp",
+        "description": "GDM network discovery"
+      }
+    ],
+    "volumes": [
+      {
+        "hostPath": "/data/plex/config",
+        "containerPath": "/config",
+        "mode": "rw",
+        "description": "Plex configuration directory"
+      },
+      {
+        "hostPath": "/data/plex/transcode",
+        "containerPath": "/transcode",
+        "mode": "rw",
+        "description": "Transcoding temporary directory"
+      },
+      {
+        "hostPath": "/media/movies",
+        "containerPath": "/data/movies",
+        "mode": "ro",
+        "description": "Movies library"
+      },
+      {
+        "hostPath": "/media/tv",
+        "containerPath": "/data/tv",
+        "mode": "ro",
+        "description": "TV shows library"
+      },
+      {
+        "hostPath": "/media/music",
+        "containerPath": "/data/music",
+        "mode": "ro",
+        "description": "Music library"
+      }
+    ],
+    "networks": ["bridge"],
+    "restartPolicy": "unless-stopped",
+    "resources": {
+      "memory": 2048,
+      "cpus": 2.0
+    },
+    "security": {
+      "privileged": false
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Container Name",
+        "description": "Name for the container instance"
+      },
+      "environment": {
+        "type": "object",
+        "title": "Environment Variables",
+        "properties": {
+          "PLEX_CLAIM": {
+            "type": "string",
+            "title": "Plex Claim Token",
+            "description": "Token from plex.tv/claim for server setup"
+          },
+          "ADVERTISE_IP": {
+            "type": "string",
+            "title": "Advertise IP",
+            "description": "IP address to advertise for remote access"
+          },
+          "ALLOWED_NETWORKS": {
+            "type": "string",
+            "title": "Allowed Networks",
+            "description": "Comma-separated list of allowed network subnets"
+          }
+        }
+      },
+      "ports": {
+        "type": "array",
+        "title": "Port Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPort": {
+              "type": "number",
+              "title": "Host Port",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      },
+      "volumes": {
+        "type": "array",
+        "title": "Volume Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPath": {
+              "type": "string",
+              "title": "Host Path"
+            },
+            "containerPath": {
+              "type": "string",
+              "title": "Container Path"
+            }
+          }
+        }
+      },
+      "resources": {
+        "type": "object",
+        "title": "Resource Limits",
+        "properties": {
+          "memory": {
+            "type": "number",
+            "title": "Memory Limit (MB)",
+            "minimum": 1024
+          },
+          "cpus": {
+            "type": "number",
+            "title": "CPU Limit",
+            "minimum": 1.0
+          }
+        }
+      }
+    },
+    "required": ["name"]
+  },
+  "documentation": "Plex Media Server is a digital media player and organizational tool that allows you to access the music, pictures, and videos stored on one computer with any other computer or compatible device. Stream your media to phones, tablets, smart TVs, and streaming devices.",
+  "tags": ["media-server", "streaming", "movies", "tv", "music", "photos"],
+  "author": "Plex Inc.",
+  "homepage": "https://www.plex.tv/",
+  "repository": "https://github.com/plexinc/pms-docker"
+}

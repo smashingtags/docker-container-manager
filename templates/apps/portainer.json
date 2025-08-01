@@ -1,0 +1,121 @@
+{
+  "id": "portainer",
+  "name": "Portainer",
+  "description": "Lightweight management UI for Docker environments",
+  "category": "utilities",
+  "icon": "https://portainer.io/images/logos/portainer.png",
+  "version": "1.0.0",
+  "image": "portainer/portainer-ce",
+  "defaultConfig": {
+    "name": "portainer",
+    "image": "portainer/portainer-ce",
+    "tag": "latest",
+    "environment": {},
+    "ports": [
+      {
+        "hostPort": 9000,
+        "containerPort": 9000,
+        "protocol": "tcp",
+        "description": "Portainer web interface"
+      },
+      {
+        "hostPort": 8000,
+        "containerPort": 8000,
+        "protocol": "tcp",
+        "description": "Portainer edge agent tunnel"
+      }
+    ],
+    "volumes": [
+      {
+        "hostPath": "/var/run/docker.sock",
+        "containerPath": "/var/run/docker.sock",
+        "mode": "rw",
+        "description": "Docker socket"
+      },
+      {
+        "hostPath": "/data/portainer/data",
+        "containerPath": "/data",
+        "mode": "rw",
+        "description": "Portainer data directory"
+      }
+    ],
+    "networks": [
+      "bridge"
+    ],
+    "restartPolicy": "unless-stopped",
+    "resources": {
+      "memory": 256,
+      "cpus": 0.5
+    },
+    "security": {
+      "privileged": false
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Container Name",
+        "description": "Name for the container instance"
+      },
+      "ports": {
+        "type": "array",
+        "title": "Port Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPort": {
+              "type": "number",
+              "title": "Host Port",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      },
+      "volumes": {
+        "type": "array",
+        "title": "Volume Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPath": {
+              "type": "string",
+              "title": "Host Path"
+            }
+          }
+        }
+      },
+      "resources": {
+        "type": "object",
+        "title": "Resource Limits",
+        "properties": {
+          "memory": {
+            "type": "number",
+            "title": "Memory Limit (MB)",
+            "minimum": 128
+          },
+          "cpus": {
+            "type": "number",
+            "title": "CPU Limit",
+            "minimum": 0.1
+          }
+        }
+      }
+    },
+    "required": [
+      "name"
+    ]
+  },
+  "documentation": "Portainer is a lightweight management UI which allows you to easily manage your different Docker environments (Docker hosts or Swarm clusters). It is meant to be as simple to deploy as it is to use.",
+  "tags": [
+    "docker",
+    "management",
+    "ui",
+    "container"
+  ],
+  "author": "Portainer Team",
+  "homepage": "https://www.portainer.io/",
+  "repository": "https://github.com/portainer/portainer"
+}

@@ -1,0 +1,104 @@
+{
+  "id": "redis",
+  "name": "Redis",
+  "description": "In-memory data structure store, used as database, cache, and message broker",
+  "category": "databases",
+  "icon": "https://raw.githubusercontent.com/docker-library/docs/master/redis/logo.png",
+  "version": "1.0.0",
+  "image": "redis",
+  "defaultConfig": {
+    "name": "redis",
+    "image": "redis",
+    "tag": "7-alpine",
+    "environment": {},
+    "ports": [
+      {
+        "hostPort": 6379,
+        "containerPort": 6379,
+        "protocol": "tcp",
+        "description": "Redis port"
+      }
+    ],
+    "volumes": [
+      {
+        "hostPath": "/data/redis/data",
+        "containerPath": "/data",
+        "mode": "rw",
+        "description": "Redis data directory"
+      }
+    ],
+    "networks": ["bridge"],
+    "restartPolicy": "unless-stopped",
+    "resources": {
+      "memory": 256,
+      "cpus": 0.5
+    },
+    "healthCheck": {
+      "test": ["CMD", "redis-cli", "ping"],
+      "interval": 30,
+      "timeout": 3,
+      "retries": 3,
+      "startPeriod": 30
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Container Name",
+        "description": "Name for the container instance"
+      },
+      "ports": {
+        "type": "array",
+        "title": "Port Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPort": {
+              "type": "number",
+              "title": "Host Port",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      },
+      "volumes": {
+        "type": "array",
+        "title": "Volume Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPath": {
+              "type": "string",
+              "title": "Host Path"
+            }
+          }
+        }
+      },
+      "resources": {
+        "type": "object",
+        "title": "Resource Limits",
+        "properties": {
+          "memory": {
+            "type": "number",
+            "title": "Memory Limit (MB)",
+            "minimum": 128
+          },
+          "cpus": {
+            "type": "number",
+            "title": "CPU Limit",
+            "minimum": 0.1
+          }
+        }
+      }
+    },
+    "required": ["name"]
+  },
+  "documentation": "Redis is an open source, in-memory data structure store, used as a database, cache, and message broker. It supports data structures such as strings, hashes, lists, sets, sorted sets with range queries, bitmaps, hyperloglogs, geospatial indexes, and streams.",
+  "tags": ["database", "cache", "in-memory", "nosql"],
+  "author": "Redis Team",
+  "homepage": "https://redis.io/",
+  "repository": "https://github.com/redis/redis"
+}

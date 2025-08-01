@@ -290,6 +290,110 @@ interface NetworkingService {
 - **Enhanced Test Isolation**: Improved test architecture by properly mocking validation utilities, ensuring better test isolation and more reliable test execution. This prevents external dependencies from affecting test results and improves overall test performance.
 - **Advanced Integration Testing**: Comprehensive integration tests now include real file system operations for volume validation, multi-container port conflict scenarios, mixed protocol configurations (TCP/UDP), reserved port handling, complex volume mapping with nested directories, and custom network creation with different drivers.
 
+## App Template System
+
+The template system provides a comprehensive solution for managing Docker application templates with validation, caching, and category management:
+
+### Key Features
+- **Template Loading**: Efficient loading and caching of JSON-based app templates
+- **Category Management**: Automatic categorization with app counts and fallback generation
+- **Search Functionality**: Multi-field search across names, descriptions, tags, and authors
+- **Validation**: Comprehensive Joi-based template validation with detailed error reporting
+- **Caching**: In-memory caching for improved performance with cache management methods
+- **File System Integration**: Robust file parsing with JSON validation and error handling
+
+### Template Service API
+
+```typescript
+interface TemplateService {
+  loadTemplate(templateId: string): Promise<AppTemplate>;
+  loadAllTemplates(): Promise<AppTemplate[]>;
+  getTemplatesByCategory(category: string): Promise<AppTemplate[]>;
+  searchTemplates(query: string): Promise<AppTemplate[]>;
+  getCategories(): Promise<AppCategory[]>;
+  validateTemplate(template: any): ValidationResult<AppTemplate>;
+  parseTemplateFile(filePath: string): Promise<AppTemplate>;
+}
+```
+
+### Template Structure
+App templates are JSON files with the following structure:
+- **Metadata**: ID, name, description, category, icon, version, tags, author
+- **Container Configuration**: Default Docker configuration with ports, volumes, environment variables
+- **Configuration Schema**: JSON schema for user customization options
+- **Documentation**: Detailed usage instructions and setup guides
+
+### Template Validation
+The template validation system ensures:
+- **Schema Compliance**: All required fields present with correct data types
+- **ID Format**: Lowercase alphanumeric with hyphens only
+- **Version Format**: Semantic versioning (x.y.z)
+- **URI Validation**: Valid URLs for icons, homepage, and repository
+- **Container Config**: Complete validation of default Docker configuration
+- **JSON Schema**: Valid configuration schema for user customization
+
+### Category Management
+- **Automatic Discovery**: Categories generated from existing templates
+- **App Counting**: Real-time count of applications per category
+- **Icon Mapping**: Default category icons with emoji fallbacks
+- **Name Formatting**: Automatic category name formatting from IDs
+
+### Template Directory Structure
+```
+templates/
+├── apps/                         # Individual app templates
+│   ├── portainer.json           # Example: Portainer management UI
+│   ├── nginx.json               # Example: Nginx web server
+│   └── ...                      # Additional app templates
+└── categories/                   # Category definitions (optional)
+    └── categories.json          # Manual category configuration
+```
+
+### Template File Format
+Each template is a JSON file with comprehensive configuration:
+```json
+{
+  "id": "portainer",
+  "name": "Portainer",
+  "description": "Docker management UI",
+  "category": "management",
+  "icon": "https://portainer.io/images/logo.png",
+  "version": "2.19.4",
+  "image": "portainer/portainer-ce",
+  "defaultConfig": {
+    "ports": [
+      {
+        "hostPort": 9000,
+        "containerPort": 9000,
+        "protocol": "tcp",
+        "description": "Web UI"
+      }
+    ],
+    "volumes": [
+      {
+        "hostPath": "/var/run/docker.sock",
+        "containerPath": "/var/run/docker.sock",
+        "mode": "rw",
+        "description": "Docker socket"
+      }
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "webPort": {
+        "type": "number",
+        "default": 9000,
+        "description": "Web interface port"
+      }
+    }
+  },
+  "documentation": "Portainer is a lightweight management UI...",
+  "tags": ["management", "docker", "ui"],
+  "author": "Portainer Team"
+}
+```
+
 ### Docker Service API
 
 ```typescript
@@ -367,8 +471,9 @@ This project is currently in development. The following foundation tasks are com
 - **Container Operations**: Container listing functionality implemented with status mapping and port/volume extraction
 - **Networking Service**: Complete networking and storage validation with port conflict detection, host path validation, and network management
 - **Container Service**: Full container lifecycle management with integrated networking validation and comprehensive configuration validation
+- **App Template System**: Complete template service implementation with validation, caching, and category management
 - **Integration Testing**: Advanced integration tests with real file system operations, multi-container scenarios, and comprehensive validation coverage
-- **Next Steps**: App store functionality, monitoring system, and REST API endpoints
+- **Next Steps**: App store service, monitoring system, and REST API endpoints
 
 See the [tasks.md](.kiro/specs/docker-container-manager/tasks.md) file for detailed implementation progress.
 

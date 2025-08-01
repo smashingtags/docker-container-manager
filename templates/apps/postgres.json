@@ -1,0 +1,129 @@
+{
+  "id": "postgres",
+  "name": "PostgreSQL",
+  "description": "Advanced open-source relational database",
+  "category": "databases",
+  "icon": "https://raw.githubusercontent.com/docker-library/docs/master/postgres/logo.png",
+  "version": "1.0.0",
+  "image": "postgres",
+  "defaultConfig": {
+    "name": "postgres",
+    "image": "postgres",
+    "tag": "15",
+    "environment": {
+      "POSTGRES_DB": "mydb",
+      "POSTGRES_USER": "postgres",
+      "POSTGRES_PASSWORD": "password"
+    },
+    "ports": [
+      {
+        "hostPort": 5432,
+        "containerPort": 5432,
+        "protocol": "tcp",
+        "description": "PostgreSQL port"
+      }
+    ],
+    "volumes": [
+      {
+        "hostPath": "/data/postgres/data",
+        "containerPath": "/var/lib/postgresql/data",
+        "mode": "rw",
+        "description": "Database data directory"
+      }
+    ],
+    "networks": ["bridge"],
+    "restartPolicy": "unless-stopped",
+    "resources": {
+      "memory": 512,
+      "cpus": 1.0
+    },
+    "healthCheck": {
+      "test": ["CMD-SHELL", "pg_isready -U postgres"],
+      "interval": 30,
+      "timeout": 10,
+      "retries": 3,
+      "startPeriod": 60
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Container Name",
+        "description": "Name for the container instance"
+      },
+      "environment": {
+        "type": "object",
+        "title": "Environment Variables",
+        "properties": {
+          "POSTGRES_DB": {
+            "type": "string",
+            "title": "Database Name",
+            "description": "Name of the default database"
+          },
+          "POSTGRES_USER": {
+            "type": "string",
+            "title": "Database User",
+            "description": "Username for database access"
+          },
+          "POSTGRES_PASSWORD": {
+            "type": "string",
+            "title": "Database Password",
+            "description": "Password for database access"
+          }
+        }
+      },
+      "ports": {
+        "type": "array",
+        "title": "Port Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPort": {
+              "type": "number",
+              "title": "Host Port",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      },
+      "volumes": {
+        "type": "array",
+        "title": "Volume Mappings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hostPath": {
+              "type": "string",
+              "title": "Host Path"
+            }
+          }
+        }
+      },
+      "resources": {
+        "type": "object",
+        "title": "Resource Limits",
+        "properties": {
+          "memory": {
+            "type": "number",
+            "title": "Memory Limit (MB)",
+            "minimum": 256
+          },
+          "cpus": {
+            "type": "number",
+            "title": "CPU Limit",
+            "minimum": 0.5
+          }
+        }
+      }
+    },
+    "required": ["name", "environment"]
+  },
+  "documentation": "PostgreSQL is a powerful, open source object-relational database system with over 35 years of active development. It has earned a strong reputation for reliability, feature robustness, and performance.",
+  "tags": ["database", "sql", "relational", "postgres"],
+  "author": "PostgreSQL Global Development Group",
+  "homepage": "https://www.postgresql.org/",
+  "repository": "https://github.com/postgres/postgres"
+}
