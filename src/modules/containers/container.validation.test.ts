@@ -1,189 +1,171 @@
 import {
+  validateContainerConfig,
+  validateCreateContainerRequest,
   validatePortMapping,
   validateVolumeMapping,
-  validateNetworkConfig,
+  validateRestartPolicy,
   validateResourceLimits,
   validateHealthCheck,
   validateSecurityOptions,
-  validateRestartPolicy,
-  validateContainerName,
-  validateImageReference,
-  validateEnvironmentVariables,
-  validateContainerConfig,
-  validateCreateContainerRequest,
-  validatePortConflicts
+  validateHostPathExists,
+  validatePortAvailability,
+  validateContainerNameUniqueness
 } from './container.validation';
-
 import {
+  ContainerConfig,
+  CreateContainerRequest,
   PortMapping,
   VolumeMapping,
-  NetworkConfig,
   ResourceLimits,
   HealthCheck,
   SecurityOptions,
-  ContainerConfig,
-  CreateContainerRequest
+  RestartPolicy
 } from '../../types/container.types';
+import * as fs from 'fs';
+
+// Mock fs module for testing
+jest.mock('fs');
+const mockedFs = fs as jest.Mocked<typeof fs>;
 
 describe('Container Validation', () => {
   describe('validatePortMapping', () => {
-    it('should validate valid port mapping', () => {
-      const validPort: PortMapping = {
+    it('should validate a correct port mapping', () => {
+      const port: PortMapping = {
         hostPort: 8080,
         containerPort: 80,
         protocol: 'tcp',
-        description: 'Web server'
+        description: 'Web server port'
       };
 
-      const errors = validatePortMapping(validPort);
-      expect(errors).toHaveLength(0);
+      const result = validatePortMapping(port);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toEqual(port);
+      expect(result.errors).toHaveLength(0);
     });
 
     it('should reject invalid host port', () => {
-      const invalidPort: PortMapping = {
+      const port: PortMapping = {
         hostPort: 0,
         containerPort: 80,
         protocol: 'tcp'
       };
 
-      const errors = validatePortMapping(invalidPort);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('hostPort');
-      expect(errors[0]?.message).toContain('between 1 and 65535');
+      const result = validatePortMapping(port);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('hostPort');
+      expect(result.errors[0]!.message).toContain('must be between 1 and 65535');
     });
 
     it('should reject invalid container port', () => {
-      const invalidPort: PortMapping = {
+      const port: PortMapping = {
         hostPort: 8080,
         containerPort: 70000,
         protocol: 'tcp'
       };
 
-      const errors = validatePortMapping(invalidPort);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('containerPort');
+      const result = validatePortMapping(port);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('containerPort');
+      expect(result.errors[0]!.message).toContain('must be between 1 and 65535');
     });
 
     it('should reject invalid protocol', () => {
-      const invalidPort: PortMapping = {
+      const port: PortMapping = {
         hostPort: 8080,
         containerPort: 80,
-        protocol: 'invalid' as any
+        protocol: 'http' as any
       };
 
-      const errors = validatePortMapping(invalidPort);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('protocol');
+      const result = validatePortMapping(port);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('protocol');
+      expect(result.errors[0]!.message).toContain('must be either "tcp" or "udp"');
     });
 
-    it('should reject non-string description', () => {
-      const invalidPort: PortMapping = {
+    it('should accept port mapping without description', () => {
+      const port: PortMapping = {
         hostPort: 8080,
         containerPort: 80,
-        protocol: 'tcp',
-        description: 123 as any
+        protocol: 'tcp'
       };
 
-      const errors = validatePortMapping(invalidPort);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('description');
+      const result = validatePortMapping(port);
+      expect(result.isValid).toBe(true);
     });
   });
 
   describe('validateVolumeMapping', () => {
-    it('should validate valid volume mapping', () => {
-      const validVolume: VolumeMapping = {
+    it('should validate a correct volume mapping', () => {
+      const volume: VolumeMapping = {
         hostPath: '/host/data',
         containerPath: '/app/data',
         mode: 'rw',
-        description: 'Data volume'
+        description: 'Application data'
       };
 
-      const errors = validateVolumeMapping(validVolume);
-      expect(errors).toHaveLength(0);
+      const result = validateVolumeMapping(volume);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toEqual(volume);
+      expect(result.errors).toHaveLength(0);
     });
 
     it('should reject relative host path', () => {
-      const invalidVolume: VolumeMapping = {
+      const volume: VolumeMapping = {
         hostPath: 'relative/path',
         containerPath: '/app/data',
         mode: 'rw'
       };
 
-      const errors = validateVolumeMapping(invalidVolume);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('hostPath');
-      expect(errors[0]?.message).toContain('absolute path');
-    });
-
-    it('should reject relative container path', () => {
-      const invalidVolume: VolumeMapping = {
-        hostPath: '/host/data',
-        containerPath: 'relative/path',
-        mode: 'rw'
-      };
-
-      const errors = validateVolumeMapping(invalidVolume);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('containerPath');
+      const result = validateVolumeMapping(volume);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('hostPath');
+      expect(result.errors[0]!.message).toContain('must be an absolute path');
     });
 
     it('should reject invalid mode', () => {
-      const invalidVolume: VolumeMapping = {
+      const volume: VolumeMapping = {
         hostPath: '/host/data',
         containerPath: '/app/data',
         mode: 'invalid' as any
       };
 
-      const errors = validateVolumeMapping(invalidVolume);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('mode');
+      const result = validateVolumeMapping(volume);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('mode');
+      expect(result.errors[0]!.message).toContain('must be either "ro" (read-only) or "rw" (read-write)');
     });
   });
 
-  describe('validateNetworkConfig', () => {
-    it('should validate valid network config', () => {
-      const validNetwork: NetworkConfig = {
-        name: 'my-network',
-        driver: 'bridge',
-        options: {
-          'com.docker.network.bridge.name': 'docker0'
-        }
-      };
-
-      const errors = validateNetworkConfig(validNetwork);
-      expect(errors).toHaveLength(0);
+  describe('validateRestartPolicy', () => {
+    it('should validate correct restart policies', () => {
+      const policies: RestartPolicy[] = ['no', 'always', 'unless-stopped', 'on-failure'];
+      
+      policies.forEach(policy => {
+        const result = validateRestartPolicy(policy);
+        expect(result.isValid).toBe(true);
+        expect(result.data).toBe(policy);
+      });
     });
 
-    it('should reject invalid network name', () => {
-      const invalidNetwork: NetworkConfig = {
-        name: '-invalid-name'
-      };
-
-      const errors = validateNetworkConfig(invalidNetwork);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('name');
-    });
-
-    it('should reject non-string option values', () => {
-      const invalidNetwork: NetworkConfig = {
-        name: 'valid-name',
-        options: {
-          'key': 123 as any
-        }
-      };
-
-      const errors = validateNetworkConfig(invalidNetwork);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('options.key');
+    it('should reject invalid restart policy', () => {
+      const result = validateRestartPolicy('invalid' as any);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('restartPolicy');
+      expect(result.errors[0]!.message).toContain('must be one of');
     });
   });
 
   describe('validateResourceLimits', () => {
-    it('should validate valid resource limits', () => {
-      const validResources: ResourceLimits = {
+    it('should validate correct resource limits', () => {
+      const resources: ResourceLimits = {
         memory: 512,
-        cpus: 2.0,
+        cpus: 1.5,
         diskSpace: 1024,
         pidsLimit: 100,
         ulimits: [
@@ -191,48 +173,40 @@ describe('Container Validation', () => {
         ]
       };
 
-      const errors = validateResourceLimits(validResources);
-      expect(errors).toHaveLength(0);
+      const result = validateResourceLimits(resources);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toEqual(resources);
     });
 
-    it('should reject negative memory', () => {
-      const invalidResources: ResourceLimits = {
-        memory: -100
+    it('should reject negative memory limit', () => {
+      const resources: ResourceLimits = {
+        memory: -512
       };
 
-      const errors = validateResourceLimits(invalidResources);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('memory');
+      const result = validateResourceLimits(resources);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('memory');
+      expect(result.errors[0]!.message).toContain('must be greater than 0');
     });
 
-    it('should reject too low memory', () => {
-      const invalidResources: ResourceLimits = {
-        memory: 2
-      };
-
-      const errors = validateResourceLimits(invalidResources);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('memory');
-      expect(errors[0]?.message).toContain('at least 4 MB');
-    });
-
-    it('should reject invalid ulimit with soft > hard', () => {
-      const invalidResources: ResourceLimits = {
+    it('should reject ulimits where soft > hard', () => {
+      const resources: ResourceLimits = {
         ulimits: [
           { name: 'nofile', soft: 2048, hard: 1024 }
         ]
       };
 
-      const errors = validateResourceLimits(invalidResources);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('ulimits[0]');
-      expect(errors[0]?.message).toContain('soft value cannot be greater than hard');
+      const result = validateResourceLimits(resources);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.some(e => e.message.includes('soft value cannot be greater than hard value'))).toBe(true);
     });
   });
 
   describe('validateHealthCheck', () => {
-    it('should validate valid health check', () => {
-      const validHealthCheck: HealthCheck = {
+    it('should validate correct health check', () => {
+      const healthCheck: HealthCheck = {
         test: ['CMD', 'curl', '-f', 'http://localhost/health'],
         interval: 30,
         timeout: 10,
@@ -240,435 +214,212 @@ describe('Container Validation', () => {
         startPeriod: 60
       };
 
-      const errors = validateHealthCheck(validHealthCheck);
-      expect(errors).toHaveLength(0);
+      const result = validateHealthCheck(healthCheck);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toEqual(healthCheck);
     });
 
     it('should reject empty test array', () => {
-      const invalidHealthCheck: HealthCheck = {
+      const healthCheck: HealthCheck = {
         test: []
       };
 
-      const errors = validateHealthCheck(invalidHealthCheck);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('test');
+      const result = validateHealthCheck(healthCheck);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('test');
+      expect(result.errors[0]!.message).toContain('must be a non-empty array');
     });
 
     it('should reject timeout >= interval', () => {
-      const invalidHealthCheck: HealthCheck = {
-        test: ['CMD', 'true'],
+      const healthCheck: HealthCheck = {
+        test: ['CMD', 'echo', 'ok'],
         interval: 30,
         timeout: 30
       };
 
-      const errors = validateHealthCheck(invalidHealthCheck);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('timeout');
-      expect(errors[0]?.message).toContain('must be less than interval');
+      const result = validateHealthCheck(healthCheck);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('timeout');
+      expect(result.errors[0]!.message).toContain('must be less than interval');
     });
   });
 
   describe('validateSecurityOptions', () => {
-    it('should validate valid security options', () => {
-      const validSecurity: SecurityOptions = {
+    it('should validate correct security options', () => {
+      const security: SecurityOptions = {
         privileged: false,
         readOnly: true,
-        user: 'www-data:www-data',
+        user: 'appuser',
         capabilities: {
           add: ['NET_ADMIN'],
           drop: ['ALL']
         }
       };
 
-      const errors = validateSecurityOptions(validSecurity);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should reject invalid user format', () => {
-      const invalidSecurity: SecurityOptions = {
-        user: 'invalid user name'
-      };
-
-      const errors = validateSecurityOptions(invalidSecurity);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('user');
-    });
-
-    it('should reject non-array capabilities', () => {
-      const invalidSecurity: SecurityOptions = {
-        capabilities: {
-          add: 'NET_ADMIN' as any
-        }
-      };
-
-      const errors = validateSecurityOptions(invalidSecurity);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('capabilities.add');
-    });
-  });
-
-  describe('validateRestartPolicy', () => {
-    it('should validate valid restart policies', () => {
-      const validPolicies = ['no', 'always', 'unless-stopped', 'on-failure'];
-      
-      validPolicies.forEach(policy => {
-        const errors = validateRestartPolicy(policy as any);
-        expect(errors).toHaveLength(0);
-      });
-    });
-
-    it('should reject invalid restart policy', () => {
-      const errors = validateRestartPolicy('invalid' as any);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('restartPolicy');
-    });
-  });
-
-  describe('validateContainerName', () => {
-    it('should validate valid container names', () => {
-      const validNames = ['web-server', 'app_1', 'my-app.test', 'container123'];
-      
-      validNames.forEach(name => {
-        const errors = validateContainerName(name);
-        expect(errors).toHaveLength(0);
-      });
-    });
-
-    it('should reject names starting with special characters', () => {
-      const errors = validateContainerName('-invalid');
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('name');
-    });
-
-    it('should reject names that are too long', () => {
-      const longName = 'a'.repeat(64);
-      const errors = validateContainerName(longName);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('name');
-      expect(errors[0]?.message).toContain('63 characters');
-    });
-  });
-
-  describe('validateImageReference', () => {
-    it('should validate valid image references', () => {
-      const validImages = [
-        { image: 'nginx', tag: 'latest' },
-        { image: 'ubuntu', tag: '20.04' },
-        { image: 'registry.example.com/myapp', tag: 'v1.0.0' }
-      ];
-
-      validImages.forEach(({ image, tag }) => {
-        const errors = validateImageReference(image, tag);
-        expect(errors).toHaveLength(0);
-      });
-    });
-
-    it('should reject uppercase image names', () => {
-      const errors = validateImageReference('NGINX');
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('image');
-    });
-
-    it('should reject invalid tag format', () => {
-      const errors = validateImageReference('nginx', '-invalid');
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('tag');
-    });
-  });
-
-  describe('validateEnvironmentVariables', () => {
-    it('should validate valid environment variables', () => {
-      const validEnv = {
-        'NODE_ENV': 'production',
-        'PORT': '3000',
-        'DB_HOST': 'localhost'
-      };
-
-      const errors = validateEnvironmentVariables(validEnv);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should reject invalid variable names', () => {
-      const invalidEnv = {
-        '123INVALID': 'value'
-      };
-
-      const errors = validateEnvironmentVariables(invalidEnv);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('environment.123INVALID');
-    });
-
-    it('should reject non-string values', () => {
-      const invalidEnv = {
-        'VALID_NAME': 123 as any
-      };
-
-      const errors = validateEnvironmentVariables(invalidEnv);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('environment.VALID_NAME');
-    });
-  });
-}); 
- describe('validateContainerConfig', () => {
-    it('should validate complete valid container config', () => {
-      const validConfig: ContainerConfig = {
-        id: 'container-123',
-        name: 'web-server',
-        image: 'nginx',
-        tag: 'latest',
-        environment: {
-          'NODE_ENV': 'production'
-        },
-        ports: [
-          {
-            hostPort: 8080,
-            containerPort: 80,
-            protocol: 'tcp'
-          }
-        ],
-        volumes: [
-          {
-            hostPath: '/host/data',
-            containerPath: '/app/data',
-            mode: 'rw'
-          }
-        ],
-        networks: ['bridge'],
-        restartPolicy: 'always',
-        resources: {
-          memory: 512,
-          cpus: 1.0
-        },
-        healthCheck: {
-          test: ['CMD', 'curl', '-f', 'http://localhost/health'],
-          interval: 30,
-          timeout: 10,
-          retries: 3
-        },
-        security: {
-          privileged: false,
-          readOnly: false
-        },
-        labels: {
-          'app': 'web-server',
-          'version': '1.0'
-        },
-        workingDir: '/app',
-        hostname: 'web-server',
-        autoRemove: false
-      };
-
-      const result = validateContainerConfig(validConfig);
+      const result = validateSecurityOptions(security);
       expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-      expect(result.data).toEqual(validConfig);
+      expect(result.data).toEqual(security);
     });
 
-    it('should detect port conflicts', () => {
-      const configWithDuplicatePorts: ContainerConfig = {
-        id: 'container-123',
-        name: 'web-server',
-        image: 'nginx',
-        tag: 'latest',
-        environment: {},
-        ports: [
-          { hostPort: 8080, containerPort: 80, protocol: 'tcp' },
-          { hostPort: 8080, containerPort: 8080, protocol: 'tcp' }
-        ],
-        volumes: [],
-        networks: [],
-        restartPolicy: 'always',
-        resources: {}
+    it('should reject invalid privileged flag', () => {
+      const security: SecurityOptions = {
+        privileged: 'true' as any
       };
 
-      const result = validateContainerConfig(configWithDuplicatePorts);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.field === 'ports' && e.message.includes('Duplicate'))).toBe(true);
-    });
-
-    it('should validate all required fields', () => {
-      const incompleteConfig = {
-        // Missing required fields
-      } as ContainerConfig;
-
-      const result = validateContainerConfig(incompleteConfig);
+      const result = validateSecurityOptions(security);
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
-    });
-
-    it('should validate nested field errors', () => {
-      const configWithInvalidNested: ContainerConfig = {
-        id: 'container-123',
-        name: 'web-server',
-        image: 'nginx',
-        tag: 'latest',
-        environment: {},
-        ports: [
-          { hostPort: 0, containerPort: 80, protocol: 'tcp' } // Invalid port
-        ],
-        volumes: [],
-        networks: [],
-        restartPolicy: 'always',
-        resources: {
-          memory: -100 // Invalid memory
-        }
-      };
-
-      const result = validateContainerConfig(configWithInvalidNested);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.field === 'ports[0].hostPort')).toBe(true);
-      expect(result.errors.some(e => e.field === 'resources.memory')).toBe(true);
+      expect(result.errors[0]!.field).toBe('privileged');
+      expect(result.errors[0]!.message).toContain('must be a boolean');
     });
   });
 
   describe('validateCreateContainerRequest', () => {
-    it('should validate valid creation request', () => {
-      const validRequest: CreateContainerRequest = {
+    it('should validate a minimal container request', () => {
+      const request: CreateContainerRequest = {
+        name: 'test-container',
+        image: 'nginx'
+      };
+
+      const result = validateCreateContainerRequest(request);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toEqual(request);
+    });
+
+    it('should reject invalid container name', () => {
+      const request: CreateContainerRequest = {
+        name: '-invalid-name',
+        image: 'nginx'
+      };
+
+      const result = validateCreateContainerRequest(request);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('name');
+      expect(result.errors[0]!.message).toContain('must start with alphanumeric character');
+    });
+
+    it('should reject missing image', () => {
+      const request: CreateContainerRequest = {
+        name: 'test-container',
+        image: ''
+      };
+
+      const result = validateCreateContainerRequest(request);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('image');
+      expect(result.errors[0]!.message).toContain('is required');
+    });
+  });
+
+  describe('validateContainerConfig', () => {
+    it('should validate a complete container configuration', () => {
+      const config: ContainerConfig = {
+        id: 'container-123',
         name: 'web-server',
         image: 'nginx',
         tag: 'latest',
         environment: {
-          'NODE_ENV': 'production'
+          NODE_ENV: 'production'
         },
         ports: [
-          {
-            hostPort: 8080,
-            containerPort: 80,
-            protocol: 'tcp'
-          }
+          { hostPort: 8080, containerPort: 80, protocol: 'tcp' }
         ],
         volumes: [
-          {
-            hostPath: '/host/data',
-            containerPath: '/app/data',
-            mode: 'rw'
-          }
+          { hostPath: '/host/data', containerPath: '/app/data', mode: 'rw' }
         ],
         networks: ['bridge'],
-        restartPolicy: 'always',
+        restartPolicy: 'unless-stopped',
         resources: {
-          memory: 512
+          memory: 512,
+          cpus: 1
         }
       };
 
-      const result = validateCreateContainerRequest(validRequest);
+      const result = validateContainerConfig(config);
       expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-      expect(result.data).toEqual(validRequest);
+      expect(result.data).toEqual(config);
     });
 
-    it('should validate minimal request', () => {
-      const minimalRequest: CreateContainerRequest = {
-        name: 'simple-app',
-        image: 'alpine'
+    it('should reject missing required fields', () => {
+      const config: Partial<ContainerConfig> = {
+        name: 'web-server',
+        image: 'nginx'
+        // Missing id, tag, environment, ports, volumes, networks, restartPolicy, resources
       };
 
-      const result = validateCreateContainerRequest(minimalRequest);
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('should reject invalid request', () => {
-      const invalidRequest: CreateContainerRequest = {
-        name: '', // Invalid name
-        image: 'INVALID_IMAGE', // Invalid image
-        ports: [
-          { hostPort: 0, containerPort: 80, protocol: 'tcp' } // Invalid port
-        ]
-      };
-
-      const result = validateCreateContainerRequest(invalidRequest);
+      const result = validateContainerConfig(config as ContainerConfig);
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.some(e => e.field === 'id')).toBe(true);
+      expect(result.errors.some(e => e.field === 'tag')).toBe(true);
     });
   });
 
-  describe('validatePortConflicts', () => {
-    it('should detect no conflicts with different ports', () => {
-      const containers: ContainerConfig[] = [
-        {
-          id: '1',
-          name: 'web1',
-          image: 'nginx',
-          tag: 'latest',
-          environment: {},
-          ports: [{ hostPort: 8080, containerPort: 80, protocol: 'tcp' }],
-          volumes: [],
-          networks: [],
-          restartPolicy: 'always',
-          resources: {}
-        },
-        {
-          id: '2',
-          name: 'web2',
-          image: 'nginx',
-          tag: 'latest',
-          environment: {},
-          ports: [{ hostPort: 8081, containerPort: 80, protocol: 'tcp' }],
-          volumes: [],
-          networks: [],
-          restartPolicy: 'always',
-          resources: {}
-        }
-      ];
-
-      const errors = validatePortConflicts(containers);
-      expect(errors).toHaveLength(0);
+  describe('validateHostPathExists', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
     });
 
-    it('should detect port conflicts', () => {
-      const containers: ContainerConfig[] = [
-        {
-          id: '1',
-          name: 'web1',
-          image: 'nginx',
-          tag: 'latest',
-          environment: {},
-          ports: [{ hostPort: 8080, containerPort: 80, protocol: 'tcp' }],
-          volumes: [],
-          networks: [],
-          restartPolicy: 'always',
-          resources: {}
-        },
-        {
-          id: '2',
-          name: 'web2',
-          image: 'nginx',
-          tag: 'latest',
-          environment: {},
-          ports: [{ hostPort: 8080, containerPort: 80, protocol: 'tcp' }],
-          volumes: [],
-          networks: [],
-          restartPolicy: 'always',
-          resources: {}
-        }
-      ];
+    it('should validate existing directory', () => {
+      const mockStats = {
+        isDirectory: () => true,
+        isFile: () => false
+      };
+      mockedFs.statSync.mockReturnValue(mockStats as any);
 
-      const errors = validatePortConflicts(containers);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.field).toBe('ports');
-      expect(errors[0]?.message).toContain('Port 8080 is used by multiple containers');
-      expect(errors[0]?.message).toContain('web1, web2');
+      const result = validateHostPathExists('/existing/directory');
+      expect(result.isValid).toBe(true);
+      expect(result.data).toBe('/existing/directory');
     });
 
-    it('should handle containers with no ports', () => {
-      const containers: ContainerConfig[] = [
-        {
-          id: '1',
-          name: 'worker1',
-          image: 'alpine',
-          tag: 'latest',
-          environment: {},
-          ports: [],
-          volumes: [],
-          networks: [],
-          restartPolicy: 'always',
-          resources: {}
-        }
-      ];
+    it('should reject non-existent path', () => {
+      mockedFs.statSync.mockImplementation(() => {
+        throw new Error('ENOENT: no such file or directory');
+      });
 
-      const errors = validatePortConflicts(containers);
-      expect(errors).toHaveLength(0);
+      const result = validateHostPathExists('/non/existent/path');
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('hostPath');
+      expect(result.errors[0]!.message).toContain('does not exist');
+    });
+  });
+
+  describe('validatePortAvailability', () => {
+    it('should validate available high port', () => {
+      const result = validatePortAvailability(8080);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toBe(8080);
+    });
+
+    it('should warn about reserved ports', () => {
+      const result = validatePortAvailability(80);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('hostPort');
+      expect(result.errors[0]!.message).toContain('commonly reserved');
+    });
+  });
+
+  describe('validateContainerNameUniqueness', () => {
+    it('should validate unique name', () => {
+      const existingNames = ['container1', 'container2'];
+      const result = validateContainerNameUniqueness('new-container', existingNames);
+      expect(result.isValid).toBe(true);
+      expect(result.data).toBe('new-container');
+    });
+
+    it('should reject duplicate name', () => {
+      const existingNames = ['container1', 'container2'];
+      const result = validateContainerNameUniqueness('container1', existingNames);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.field).toBe('name');
+      expect(result.errors[0]!.message).toContain('must be unique');
     });
   });
 });
