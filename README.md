@@ -498,6 +498,7 @@ Each template is a JSON file with comprehensive configuration:
 interface DockerService {
   // Container Operations
   listContainers(): Promise<Container[]>;           // ✅ Implemented
+  getContainerStats(id: string): Promise<ContainerStats>;  // ✅ Implemented
   createContainer(config: ContainerConfig): Promise<Container>;  // To be implemented
   startContainer(id: string): Promise<void>;        // To be implemented
   stopContainer(id: string): Promise<void>;         // To be implemented
@@ -538,6 +539,56 @@ The Docker service includes comprehensive unit tests covering:
 - **Error Scenarios**: Connection failures, operation timeouts, and retry logic
 - **Edge Cases**: Missing image tags, network failures, and malformed responses
 
+### Container Metrics Collection
+
+The Docker service now includes comprehensive container metrics collection through the `getContainerStats` method:
+
+#### Features
+- **Real-time Metrics**: Retrieves live container statistics from Docker daemon
+- **CPU Metrics**: Calculates CPU percentage with proper delta computation and multi-core support
+- **Memory Statistics**: Tracks memory usage, limits, and percentage utilization
+- **Network Statistics**: Aggregates network I/O across all container interfaces (rx/tx bytes and packets)
+- **Disk I/O Metrics**: Monitors disk read/write operations and bytes from blkio statistics
+- **Timestamp Tracking**: Includes collection timestamp for metrics correlation
+- **Error Handling**: Robust error handling with DockerOperationError for failed operations
+- **Data Safety**: Null-safe parsing with fallback values for missing statistics
+
+#### ContainerStats Interface
+```typescript
+interface ContainerStats {
+  cpu: number;                    // CPU percentage (0-100 * number of cores)
+  memory: {
+    usage: number;                // Memory usage in bytes
+    limit: number;                // Memory limit in bytes
+    percentage: number;           // Memory usage percentage
+  };
+  network: {
+    rxBytes: number;              // Received bytes across all interfaces
+    txBytes: number;              // Transmitted bytes across all interfaces
+    rxPackets: number;            // Received packets across all interfaces
+    txPackets: number;            // Transmitted packets across all interfaces
+  };
+  disk: {
+    readBytes: number;            // Disk read bytes
+    writeBytes: number;           // Disk write bytes
+    readOps: number;              // Disk read operations
+    writeOps: number;             // Disk write operations
+  };
+  timestamp: Date;                // Collection timestamp
+}
+```
+
+#### Usage Example
+```typescript
+const dockerService = new DockerServiceImpl();
+const stats = await dockerService.getContainerStats('container-id');
+
+console.log(`CPU: ${stats.cpu.toFixed(2)}%`);
+console.log(`Memory: ${(stats.memory.usage / 1024 / 1024).toFixed(2)} MB (${stats.memory.percentage.toFixed(2)}%)`);
+console.log(`Network RX: ${(stats.network.rxBytes / 1024 / 1024).toFixed(2)} MB`);
+console.log(`Disk Read: ${(stats.disk.readBytes / 1024 / 1024).toFixed(2)} MB`);
+```
+
 ### Error Handling
 - **DockerConnectionError**: Thrown when Docker daemon connection fails
 - **DockerOperationError**: Thrown when Docker operations fail
@@ -566,7 +617,7 @@ This project is currently in development. The following foundation tasks are com
 - **Module Skeleton**: Basic structure for all core modules
 - **Container Validation**: Comprehensive Joi-based validation system with field-specific error reporting, cross-validation logic, conflict detection, and TypeScript strict mode compliance
 - **Docker Service**: Complete Docker API integration with connection management, error handling, health checks, and container listing
-- **Container Operations**: Container listing functionality implemented with status mapping and port/volume extraction
+- **Container Operations**: Container listing and metrics collection implemented with status mapping, port/volume extraction, and comprehensive statistics parsing
 - **Networking Service**: Complete networking and storage validation with port conflict detection, host path validation, and network management
 - **Container Service**: Full container lifecycle management with integrated networking validation and comprehensive configuration validation
 - **App Template System**: Complete template service implementation with validation, caching, and category management

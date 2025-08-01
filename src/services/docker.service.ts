@@ -213,8 +213,29 @@ export class DockerServiceImpl implements DockerService {
   }
 
   async getContainerStats(id: string): Promise<ContainerStats> {
-    // Implementation will be added in task 5.1
-    throw new Error('Not implemented');
+    try {
+      const container = this.docker.getContainer(id);
+      
+      // Get stats with stream=false to get a single snapshot
+      const stats = await this.executeWithRetry(async () => {
+        return new Promise<any>((resolve, reject) => {
+          container.stats({ stream: false }, (err: any, data: any) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(data);
+            }
+          });
+        });
+      });
+
+      return this.parseContainerStats(stats);
+    } catch (error) {
+      throw new DockerOperationError(
+        `Failed to get stats for container ${id}`,
+        error as Error
+      );
+    }
   }
 
   async pullImage(image: string, tag = 'latest'): Promise<void> {
@@ -685,6 +706,73 @@ export class DockerServiceImpl implements DockerService {
     } catch (error) {
       throw new DockerOperationError(`Failed to validate host path ${path}`, error as Error);
     }
+  }
+
+  private parseContainerStats(stats: any): ContainerStats {
+    // Calculate CPU percentage
+    const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - (stats.precpu_stats.cpu_usage?.total_usage || 0);
+    const systemDelta = stats.cpu_stats.system_cpu_usage - (stats.precpu_stats.system_cpu_usage || 0);
+    const cpuPercent = systemDelta > 0 ? (cpuDelta / systemDelta) * stats.cpu_stats.online_cpus * 100 : 0;
+
+    // Memory stats
+    const memoryUsage = stats.memory_stats.usage || 0;
+    const memoryLimit = stats.memory_stats.limit || 0;
+    const memoryPercent = memoryLimit > 0 ? (memoryUsage / memoryLimit) * 100 : 0;
+
+    // Network stats
+    const networks = stats.networks || {};
+    let rxBytes = 0, txBytes = 0, rxPackets = 0, txPackets = 0;
+    
+    Object.values(networks).forEach((network: any) => {
+      rxBytes += network.rx_bytes || 0;
+      txBytes += network.tx_bytes || 0;
+      rxPackets += network.rx_packets || 0;
+      txPackets += network.tx_packets || 0;
+    });
+
+    // Disk I/O stats
+    const blkioStats = stats.blkio_stats.io_service_bytes_recursive || [];
+    let readBytes = 0, writeBytes = 0;
+    let readOps = 0, writeOps = 0;
+
+    blkioStats.forEach((stat: any) => {
+      if (stat.op === 'Read') {
+        readBytes += stat.value || 0;
+      } else if (stat.op === 'Write') {
+        writeBytes += stat.value || 0;
+      }
+    });
+
+    const blkioOpsStats = stats.blkio_stats.io_serviced_recursive || [];
+    blkioOpsStats.forEach((stat: any) => {
+      if (stat.op === 'Read') {
+        readOps += stat.value || 0;
+      } else if (stat.op === 'Write') {
+        writeOps += stat.value || 0;
+      }
+    });
+
+    return {
+      cpu: Math.round(cpuPercent * 100) / 100, // Round to 2 decimal places
+      memory: {
+        usage: memoryUsage,
+        limit: memoryLimit,
+        percentage: Math.round(memoryPercent * 100) / 100
+      },
+      network: {
+        rxBytes,
+        txBytes,
+        rxPackets,
+        txPackets
+      },
+      disk: {
+        readBytes,
+        writeBytes,
+        readOps,
+        writeOps
+      },
+      timestamp: new Date()
+    };
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
