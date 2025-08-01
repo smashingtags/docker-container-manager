@@ -11,591 +11,8 @@ import {
   ValidationResult,
   RestartPolicy
 } from '../../types/container.types';
-
-/**
- * Validates a port mapping configuration
- */
-export function validatePortMapping(port: PortMapping): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Validate host port
-  if (!Number.isInteger(port.hostPort) || port.hostPort < 1 || port.hostPort > 65535) {
-    errors.push({
-      field: 'hostPort',
-      message: 'Host port must be an integer between 1 and 65535',
-      value: port.hostPort
-    });
-  }
-
-  // Validate container port
-  if (!Number.isInteger(port.containerPort) || port.containerPort < 1 || port.containerPort > 65535) {
-    errors.push({
-      field: 'containerPort',
-      message: 'Container port must be an integer between 1 and 65535',
-      value: port.containerPort
-    });
-  }
-
-  // Validate protocol
-  if (!['tcp', 'udp'].includes(port.protocol)) {
-    errors.push({
-      field: 'protocol',
-      message: 'Protocol must be either "tcp" or "udp"',
-      value: port.protocol
-    });
-  }
-
-  // Validate description if provided
-  if (port.description !== undefined && typeof port.description !== 'string') {
-    errors.push({
-      field: 'description',
-      message: 'Description must be a string',
-      value: port.description
-    });
-  }
-
-  return errors;
-}
-
-/**
- * Validates a volume mapping configuration
- */
-export function validateVolumeMapping(volume: VolumeMapping): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Validate host path
-  if (!volume.hostPath || typeof volume.hostPath !== 'string') {
-    errors.push({
-      field: 'hostPath',
-      message: 'Host path is required and must be a string',
-      value: volume.hostPath
-    });
-  } else if (!volume.hostPath.startsWith('/')) {
-    errors.push({
-      field: 'hostPath',
-      message: 'Host path must be an absolute path starting with "/"',
-      value: volume.hostPath
-    });
-  }
-
-  // Validate container path
-  if (!volume.containerPath || typeof volume.containerPath !== 'string') {
-    errors.push({
-      field: 'containerPath',
-      message: 'Container path is required and must be a string',
-      value: volume.containerPath
-    });
-  } else if (!volume.containerPath.startsWith('/')) {
-    errors.push({
-      field: 'containerPath',
-      message: 'Container path must be an absolute path starting with "/"',
-      value: volume.containerPath
-    });
-  }
-
-  // Validate mode
-  if (!['ro', 'rw'].includes(volume.mode)) {
-    errors.push({
-      field: 'mode',
-      message: 'Mode must be either "ro" (read-only) or "rw" (read-write)',
-      value: volume.mode
-    });
-  }
-
-  // Validate description if provided
-  if (volume.description !== undefined && typeof volume.description !== 'string') {
-    errors.push({
-      field: 'description',
-      message: 'Description must be a string',
-      value: volume.description
-    });
-  }
-
-  return errors;
-}
-
-/**
- * Validates network configuration
- */
-export function validateNetworkConfig(network: NetworkConfig): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Validate network name
-  if (!network.name || typeof network.name !== 'string') {
-    errors.push({
-      field: 'name',
-      message: 'Network name is required and must be a string',
-      value: network.name
-    });
-  } else if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(network.name)) {
-    errors.push({
-      field: 'name',
-      message: 'Network name must start with alphanumeric character and contain only letters, numbers, underscores, dots, and hyphens',
-      value: network.name
-    });
-  }
-
-  // Validate driver if provided
-  if (network.driver !== undefined && typeof network.driver !== 'string') {
-    errors.push({
-      field: 'driver',
-      message: 'Network driver must be a string',
-      value: network.driver
-    });
-  }
-
-  // Validate options if provided
-  if (network.options !== undefined) {
-    if (typeof network.options !== 'object' || network.options === null) {
-      errors.push({
-        field: 'options',
-        message: 'Network options must be an object',
-        value: network.options
-      });
-    } else {
-      Object.entries(network.options).forEach(([key, value]) => {
-        if (typeof value !== 'string') {
-          errors.push({
-            field: `options.${key}`,
-            message: 'Network option values must be strings',
-            value: value
-          });
-        }
-      });
-    }
-  }
-
-  return errors;
-}/**
- 
-* Validates resource limits configuration
- */
-export function validateResourceLimits(resources: ResourceLimits): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Validate memory if provided
-  if (resources.memory !== undefined) {
-    if (!Number.isInteger(resources.memory) || resources.memory <= 0) {
-      errors.push({
-        field: 'memory',
-        message: 'Memory limit must be a positive integer (in MB)',
-        value: resources.memory
-      });
-    } else if (resources.memory < 4) {
-      errors.push({
-        field: 'memory',
-        message: 'Memory limit must be at least 4 MB',
-        value: resources.memory
-      });
-    }
-  }
-
-  // Validate CPUs if provided
-  if (resources.cpus !== undefined) {
-    if (typeof resources.cpus !== 'number' || resources.cpus <= 0) {
-      errors.push({
-        field: 'cpus',
-        message: 'CPU limit must be a positive number',
-        value: resources.cpus
-      });
-    } else if (resources.cpus > 64) {
-      errors.push({
-        field: 'cpus',
-        message: 'CPU limit cannot exceed 64 cores',
-        value: resources.cpus
-      });
-    }
-  }
-
-  // Validate disk space if provided
-  if (resources.diskSpace !== undefined) {
-    if (!Number.isInteger(resources.diskSpace) || resources.diskSpace <= 0) {
-      errors.push({
-        field: 'diskSpace',
-        message: 'Disk space limit must be a positive integer (in MB)',
-        value: resources.diskSpace
-      });
-    }
-  }
-
-  // Validate PIDs limit if provided
-  if (resources.pidsLimit !== undefined) {
-    if (!Number.isInteger(resources.pidsLimit) || resources.pidsLimit <= 0) {
-      errors.push({
-        field: 'pidsLimit',
-        message: 'PIDs limit must be a positive integer',
-        value: resources.pidsLimit
-      });
-    }
-  }
-
-  // Validate ulimits if provided
-  if (resources.ulimits !== undefined) {
-    if (!Array.isArray(resources.ulimits)) {
-      errors.push({
-        field: 'ulimits',
-        message: 'Ulimits must be an array',
-        value: resources.ulimits
-      });
-    } else {
-      resources.ulimits.forEach((ulimit, index) => {
-        if (!ulimit.name || typeof ulimit.name !== 'string') {
-          errors.push({
-            field: `ulimits[${index}].name`,
-            message: 'Ulimit name is required and must be a string',
-            value: ulimit.name
-          });
-        }
-
-        if (!Number.isInteger(ulimit.soft) || ulimit.soft < 0) {
-          errors.push({
-            field: `ulimits[${index}].soft`,
-            message: 'Ulimit soft value must be a non-negative integer',
-            value: ulimit.soft
-          });
-        }
-
-        if (!Number.isInteger(ulimit.hard) || ulimit.hard < 0) {
-          errors.push({
-            field: `ulimits[${index}].hard`,
-            message: 'Ulimit hard value must be a non-negative integer',
-            value: ulimit.hard
-          });
-        }
-
-        if (ulimit.soft > ulimit.hard) {
-          errors.push({
-            field: `ulimits[${index}]`,
-            message: 'Ulimit soft value cannot be greater than hard value',
-            value: { soft: ulimit.soft, hard: ulimit.hard }
-          });
-        }
-      });
-    }
-  }
-
-  return errors;
-}
-
-/**
- * Validates health check configuration
- */
-export function validateHealthCheck(healthCheck: HealthCheck): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Validate test command
-  if (!Array.isArray(healthCheck.test) || healthCheck.test.length === 0) {
-    errors.push({
-      field: 'test',
-      message: 'Health check test must be a non-empty array of strings',
-      value: healthCheck.test
-    });
-  } else {
-    healthCheck.test.forEach((cmd, index) => {
-      if (typeof cmd !== 'string') {
-        errors.push({
-          field: `test[${index}]`,
-          message: 'Health check test commands must be strings',
-          value: cmd
-        });
-      }
-    });
-  }
-
-  // Validate interval if provided
-  if (healthCheck.interval !== undefined) {
-    if (!Number.isInteger(healthCheck.interval) || healthCheck.interval <= 0) {
-      errors.push({
-        field: 'interval',
-        message: 'Health check interval must be a positive integer (in seconds)',
-        value: healthCheck.interval
-      });
-    }
-  }
-
-  // Validate timeout if provided
-  if (healthCheck.timeout !== undefined) {
-    if (!Number.isInteger(healthCheck.timeout) || healthCheck.timeout <= 0) {
-      errors.push({
-        field: 'timeout',
-        message: 'Health check timeout must be a positive integer (in seconds)',
-        value: healthCheck.timeout
-      });
-    }
-  }
-
-  // Validate retries if provided
-  if (healthCheck.retries !== undefined) {
-    if (!Number.isInteger(healthCheck.retries) || healthCheck.retries < 0) {
-      errors.push({
-        field: 'retries',
-        message: 'Health check retries must be a non-negative integer',
-        value: healthCheck.retries
-      });
-    }
-  }
-
-  // Validate start period if provided
-  if (healthCheck.startPeriod !== undefined) {
-    if (!Number.isInteger(healthCheck.startPeriod) || healthCheck.startPeriod < 0) {
-      errors.push({
-        field: 'startPeriod',
-        message: 'Health check start period must be a non-negative integer (in seconds)',
-        value: healthCheck.startPeriod
-      });
-    }
-  }
-
-  // Validate logical constraints
-  if (healthCheck.timeout !== undefined && healthCheck.interval !== undefined) {
-    if (healthCheck.timeout >= healthCheck.interval) {
-      errors.push({
-        field: 'timeout',
-        message: 'Health check timeout must be less than interval',
-        value: { timeout: healthCheck.timeout, interval: healthCheck.interval }
-      });
-    }
-  }
-
-  return errors;
-}
-
-/**
- * Validates security options configuration
- */
-export function validateSecurityOptions(security: SecurityOptions): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Validate privileged if provided
-  if (security.privileged !== undefined && typeof security.privileged !== 'boolean') {
-    errors.push({
-      field: 'privileged',
-      message: 'Privileged must be a boolean',
-      value: security.privileged
-    });
-  }
-
-  // Validate readOnly if provided
-  if (security.readOnly !== undefined && typeof security.readOnly !== 'boolean') {
-    errors.push({
-      field: 'readOnly',
-      message: 'ReadOnly must be a boolean',
-      value: security.readOnly
-    });
-  }
-
-  // Validate user if provided
-  if (security.user !== undefined) {
-    if (typeof security.user !== 'string') {
-      errors.push({
-        field: 'user',
-        message: 'User must be a string',
-        value: security.user
-      });
-    } else if (!/^[a-zA-Z0-9_-]+(:?[a-zA-Z0-9_-]+)?$/.test(security.user)) {
-      errors.push({
-        field: 'user',
-        message: 'User must be in format "user" or "user:group" with alphanumeric characters, underscores, and hyphens',
-        value: security.user
-      });
-    }
-  }
-
-  // Validate capabilities if provided
-  if (security.capabilities !== undefined) {
-    if (typeof security.capabilities !== 'object' || security.capabilities === null) {
-      errors.push({
-        field: 'capabilities',
-        message: 'Capabilities must be an object',
-        value: security.capabilities
-      });
-    } else {
-      // Validate add capabilities
-      if (security.capabilities.add !== undefined) {
-        if (!Array.isArray(security.capabilities.add)) {
-          errors.push({
-            field: 'capabilities.add',
-            message: 'Capabilities add must be an array',
-            value: security.capabilities.add
-          });
-        } else {
-          security.capabilities.add.forEach((cap, index) => {
-            if (typeof cap !== 'string') {
-              errors.push({
-                field: `capabilities.add[${index}]`,
-                message: 'Capability must be a string',
-                value: cap
-              });
-            }
-          });
-        }
-      }
-
-      // Validate drop capabilities
-      if (security.capabilities.drop !== undefined) {
-        if (!Array.isArray(security.capabilities.drop)) {
-          errors.push({
-            field: 'capabilities.drop',
-            message: 'Capabilities drop must be an array',
-            value: security.capabilities.drop
-          });
-        } else {
-          security.capabilities.drop.forEach((cap, index) => {
-            if (typeof cap !== 'string') {
-              errors.push({
-                field: `capabilities.drop[${index}]`,
-                message: 'Capability must be a string',
-                value: cap
-              });
-            }
-          });
-        }
-      }
-    }
-  }
-
-  return errors;
-}/**
- * Val
-idates restart policy
- */
-export function validateRestartPolicy(policy: RestartPolicy): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const validPolicies: RestartPolicy[] = ['no', 'always', 'unless-stopped', 'on-failure'];
-
-  if (!validPolicies.includes(policy)) {
-    errors.push({
-      field: 'restartPolicy',
-      message: `Restart policy must be one of: ${validPolicies.join(', ')}`,
-      value: policy
-    });
-  }
-
-  return errors;
-}
-
-/**
- * Validates container name
- */
-export function validateContainerName(name: string): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  if (!name || typeof name !== 'string') {
-    errors.push({
-      field: 'name',
-      message: 'Container name is required and must be a string',
-      value: name
-    });
-    return errors;
-  }
-
-  // Docker container name validation rules
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name)) {
-    errors.push({
-      field: 'name',
-      message: 'Container name must start with alphanumeric character and contain only letters, numbers, underscores, dots, and hyphens',
-      value: name
-    });
-  }
-
-  if (name.length > 63) {
-    errors.push({
-      field: 'name',
-      message: 'Container name must not exceed 63 characters',
-      value: name
-    });
-  }
-
-  return errors;
-}
-
-/**
- * Validates Docker image reference
- */
-export function validateImageReference(image: string, tag?: string): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  if (!image || typeof image !== 'string') {
-    errors.push({
-      field: 'image',
-      message: 'Image name is required and must be a string',
-      value: image
-    });
-    return errors;
-  }
-
-  // Basic image name validation
-  if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/.test(image)) {
-    errors.push({
-      field: 'image',
-      message: 'Image name must be lowercase and follow Docker naming conventions',
-      value: image
-    });
-  }
-
-  // Validate tag if provided
-  if (tag !== undefined) {
-    if (typeof tag !== 'string') {
-      errors.push({
-        field: 'tag',
-        message: 'Image tag must be a string',
-        value: tag
-      });
-    } else if (!/^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(tag)) {
-      errors.push({
-        field: 'tag',
-        message: 'Image tag must start with alphanumeric or underscore and contain only letters, numbers, underscores, dots, and hyphens',
-        value: tag
-      });
-    } else if (tag.length > 128) {
-      errors.push({
-        field: 'tag',
-        message: 'Image tag must not exceed 128 characters',
-        value: tag
-      });
-    }
-  }
-
-  return errors;
-}
-
-/**
- * Validates environment variables
- */
-export function validateEnvironmentVariables(environment: Record<string, string>): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  if (typeof environment !== 'object' || environment === null) {
-    errors.push({
-      field: 'environment',
-      message: 'Environment variables must be an object',
-      value: environment
-    });
-    return errors;
-  }
-
-  Object.entries(environment).forEach(([key, value]) => {
-    // Validate environment variable name
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
-      errors.push({
-        field: `environment.${key}`,
-        message: 'Environment variable name must start with letter or underscore and contain only letters, numbers, and underscores',
-        value: key
-      });
-    }
-
-    // Validate environment variable value
-    if (typeof value !== 'string') {
-      errors.push({
-        field: `environment.${key}`,
-        message: 'Environment variable value must be a string',
-        value: value
-      });
-    }
-  });
-
-  return errors;
-}
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * Validates a complete container configuration
@@ -604,115 +21,133 @@ export function validateContainerConfig(config: ContainerConfig): ValidationResu
   const errors: ValidationError[] = [];
 
   // Validate required fields
-  errors.push(...validateContainerName(config.name));
-  errors.push(...validateImageReference(config.image, config.tag));
-  errors.push(...validateRestartPolicy(config.restartPolicy));
+  if (!config.id || typeof config.id !== 'string' || config.id.trim().length === 0) {
+    errors.push({ field: 'id', message: 'Container ID is required and must be a non-empty string' });
+  }
+
+  if (!config.name || typeof config.name !== 'string' || config.name.trim().length === 0) {
+    errors.push({ field: 'name', message: 'Container name is required and must be a non-empty string' });
+  } else if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(config.name)) {
+    errors.push({ 
+      field: 'name', 
+      message: 'Container name must start with alphanumeric character and contain only letters, numbers, underscores, periods, and hyphens',
+      value: config.name 
+    });
+  }
+
+  if (!config.image || typeof config.image !== 'string' || config.image.trim().length === 0) {
+    errors.push({ field: 'image', message: 'Container image is required and must be a non-empty string' });
+  }
+
+  if (!config.tag || typeof config.tag !== 'string' || config.tag.trim().length === 0) {
+    errors.push({ field: 'tag', message: 'Container tag is required and must be a non-empty string' });
+  }
 
   // Validate environment variables
-  if (config.environment) {
-    errors.push(...validateEnvironmentVariables(config.environment));
+  if (config.environment && typeof config.environment !== 'object') {
+    errors.push({ field: 'environment', message: 'Environment must be an object' });
+  } else if (config.environment) {
+    Object.entries(config.environment).forEach(([key, value]) => {
+      if (typeof key !== 'string' || key.trim().length === 0) {
+        errors.push({ field: 'environment', message: 'Environment variable keys must be non-empty strings', value: key });
+      }
+      if (typeof value !== 'string') {
+        errors.push({ field: 'environment', message: 'Environment variable values must be strings', value: { key, value } });
+      }
+    });
   }
 
   // Validate ports
   if (config.ports && Array.isArray(config.ports)) {
     config.ports.forEach((port, index) => {
-      const portErrors = validatePortMapping(port);
-      portErrors.forEach(error => {
-        errors.push({
-          ...error,
-          field: `ports[${index}].${error.field}`
-        });
-      });
-    });
-
-    // Check for port conflicts
-    const hostPorts = config.ports.map(p => p.hostPort);
-    const duplicatePorts = hostPorts.filter((port, index) => hostPorts.indexOf(port) !== index);
-    if (duplicatePorts.length > 0) {
-      errors.push({
-        field: 'ports',
-        message: `Duplicate host ports found: ${[...new Set(duplicatePorts)].join(', ')}`,
-        value: duplicatePorts
-      });
-    }
-  }
-
-  // Validate volumes
-  if (config.volumes && Array.isArray(config.volumes)) {
-    config.volumes.forEach((volume, index) => {
-      const volumeErrors = validateVolumeMapping(volume);
-      volumeErrors.forEach(error => {
-        errors.push({
-          ...error,
-          field: `volumes[${index}].${error.field}`
-        });
-      });
-    });
-  }
-
-  // Validate resource limits
-  if (config.resources) {
-    const resourceErrors = validateResourceLimits(config.resources);
-    resourceErrors.forEach(error => {
-      errors.push({
-        ...error,
-        field: `resources.${error.field}`
-      });
-    });
-  }
-
-  // Validate health check
-  if (config.healthCheck) {
-    const healthErrors = validateHealthCheck(config.healthCheck);
-    healthErrors.forEach(error => {
-      errors.push({
-        ...error,
-        field: `healthCheck.${error.field}`
-      });
-    });
-  }
-
-  // Validate security options
-  if (config.security) {
-    const securityErrors = validateSecurityOptions(config.security);
-    securityErrors.forEach(error => {
-      errors.push({
-        ...error,
-        field: `security.${error.field}`
-      });
-    });
-  }
-
-  // Validate networks
-  if (config.networks && Array.isArray(config.networks)) {
-    config.networks.forEach((network, index) => {
-      if (typeof network !== 'string') {
-        errors.push({
-          field: `networks[${index}]`,
-          message: 'Network name must be a string',
-          value: network
+      const portValidation = validatePortMapping(port);
+      if (!portValidation.isValid) {
+        portValidation.errors.forEach(error => {
+          errors.push({ 
+            field: `ports[${index}].${error.field}`, 
+            message: error.message, 
+            value: error.value 
+          });
         });
       }
     });
   }
 
-  // Validate labels
-  if (config.labels) {
-    if (typeof config.labels !== 'object' || config.labels === null) {
-      errors.push({
-        field: 'labels',
-        message: 'Labels must be an object',
-        value: config.labels
-      });
-    } else {
-      Object.entries(config.labels).forEach(([key, value]) => {
-        if (typeof value !== 'string') {
-          errors.push({
-            field: `labels.${key}`,
-            message: 'Label value must be a string',
-            value: value
+  // Validate volumes
+  if (config.volumes && Array.isArray(config.volumes)) {
+    config.volumes.forEach((volume, index) => {
+      const volumeValidation = validateVolumeMapping(volume);
+      if (!volumeValidation.isValid) {
+        volumeValidation.errors.forEach(error => {
+          errors.push({ 
+            field: `volumes[${index}].${error.field}`, 
+            message: error.message, 
+            value: error.value 
           });
-        }
+        });
+      }
+    });
+  }
+
+  // Validate networks
+  if (config.networks && !Array.isArray(config.networks)) {
+    errors.push({ field: 'networks', message: 'Networks must be an array of strings' });
+  } else if (config.networks) {
+    config.networks.forEach((network, index) => {
+      if (typeof network !== 'string' || network.trim().length === 0) {
+        errors.push({ 
+          field: `networks[${index}]`, 
+          message: 'Network name must be a non-empty string', 
+          value: network 
+        });
+      }
+    });
+  }
+
+  // Validate restart policy
+  const restartPolicyValidation = validateRestartPolicy(config.restartPolicy);
+  if (!restartPolicyValidation.isValid) {
+    errors.push(...restartPolicyValidation.errors);
+  }
+
+  // Validate resource limits
+  if (config.resources) {
+    const resourceValidation = validateResourceLimits(config.resources);
+    if (!resourceValidation.isValid) {
+      resourceValidation.errors.forEach(error => {
+        errors.push({ 
+          field: `resources.${error.field}`, 
+          message: error.message, 
+          value: error.value 
+        });
+      });
+    }
+  }
+
+  // Validate health check
+  if (config.healthCheck) {
+    const healthCheckValidation = validateHealthCheck(config.healthCheck);
+    if (!healthCheckValidation.isValid) {
+      healthCheckValidation.errors.forEach(error => {
+        errors.push({ 
+          field: `healthCheck.${error.field}`, 
+          message: error.message, 
+          value: error.value 
+        });
+      });
+    }
+  }
+
+  // Validate security options
+  if (config.security) {
+    const securityValidation = validateSecurityOptions(config.security);
+    if (!securityValidation.isValid) {
+      securityValidation.errors.forEach(error => {
+        errors.push({ 
+          field: `security.${error.field}`, 
+          message: error.message, 
+          value: error.value 
+        });
       });
     }
   }
@@ -721,11 +156,11 @@ export function validateContainerConfig(config: ContainerConfig): ValidationResu
   const stringFields = ['workingDir', 'hostname', 'domainname'];
   stringFields.forEach(field => {
     const value = (config as any)[field];
-    if (value !== undefined && typeof value !== 'string') {
-      errors.push({
-        field,
-        message: `${field} must be a string`,
-        value
+    if (value !== undefined && (typeof value !== 'string' || value.trim().length === 0)) {
+      errors.push({ 
+        field, 
+        message: `${field} must be a non-empty string if provided`, 
+        value 
       });
     }
   });
@@ -736,18 +171,18 @@ export function validateContainerConfig(config: ContainerConfig): ValidationResu
     const value = (config as any)[field];
     if (value !== undefined) {
       if (!Array.isArray(value)) {
-        errors.push({
-          field,
-          message: `${field} must be an array`,
-          value
+        errors.push({ 
+          field, 
+          message: `${field} must be an array if provided`, 
+          value 
         });
       } else {
         value.forEach((item, index) => {
           if (typeof item !== 'string') {
-            errors.push({
-              field: `${field}[${index}]`,
-              message: `${field} items must be strings`,
-              value: item
+            errors.push({ 
+              field: `${field}[${index}]`, 
+              message: `${field} items must be strings`, 
+              value: item 
             });
           }
         });
@@ -755,12 +190,26 @@ export function validateContainerConfig(config: ContainerConfig): ValidationResu
     }
   });
 
+  // Validate labels
+  if (config.labels && typeof config.labels !== 'object') {
+    errors.push({ field: 'labels', message: 'Labels must be an object' });
+  } else if (config.labels) {
+    Object.entries(config.labels).forEach(([key, value]) => {
+      if (typeof key !== 'string' || key.trim().length === 0) {
+        errors.push({ field: 'labels', message: 'Label keys must be non-empty strings', value: key });
+      }
+      if (typeof value !== 'string') {
+        errors.push({ field: 'labels', message: 'Label values must be strings', value: { key, value } });
+      }
+    });
+  }
+
   // Validate autoRemove
   if (config.autoRemove !== undefined && typeof config.autoRemove !== 'boolean') {
-    errors.push({
-      field: 'autoRemove',
-      message: 'autoRemove must be a boolean',
-      value: config.autoRemove
+    errors.push({ 
+      field: 'autoRemove', 
+      message: 'autoRemove must be a boolean if provided', 
+      value: config.autoRemove 
     });
   }
 
@@ -778,119 +227,132 @@ export function validateCreateContainerRequest(request: CreateContainerRequest):
   const errors: ValidationError[] = [];
 
   // Validate required fields
-  errors.push(...validateContainerName(request.name));
-  errors.push(...validateImageReference(request.image, request.tag));
-
-  // Validate optional restart policy
-  if (request.restartPolicy) {
-    errors.push(...validateRestartPolicy(request.restartPolicy));
+  if (!request.name || typeof request.name !== 'string' || request.name.trim().length === 0) {
+    errors.push({ field: 'name', message: 'Container name is required and must be a non-empty string' });
+  } else if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(request.name)) {
+    errors.push({ 
+      field: 'name', 
+      message: 'Container name must start with alphanumeric character and contain only letters, numbers, underscores, periods, and hyphens',
+      value: request.name 
+    });
   }
 
-  // Validate environment variables if provided
-  if (request.environment) {
-    errors.push(...validateEnvironmentVariables(request.environment));
+  if (!request.image || typeof request.image !== 'string' || request.image.trim().length === 0) {
+    errors.push({ field: 'image', message: 'Container image is required and must be a non-empty string' });
   }
 
-  // Validate ports if provided
+  // Validate optional tag (defaults to 'latest' if not provided)
+  if (request.tag !== undefined && (typeof request.tag !== 'string' || request.tag.trim().length === 0)) {
+    errors.push({ field: 'tag', message: 'Container tag must be a non-empty string if provided' });
+  }
+
+  // Validate environment variables
+  if (request.environment && typeof request.environment !== 'object') {
+    errors.push({ field: 'environment', message: 'Environment must be an object' });
+  } else if (request.environment) {
+    Object.entries(request.environment).forEach(([key, value]) => {
+      if (typeof key !== 'string' || key.trim().length === 0) {
+        errors.push({ field: 'environment', message: 'Environment variable keys must be non-empty strings', value: key });
+      }
+      if (typeof value !== 'string') {
+        errors.push({ field: 'environment', message: 'Environment variable values must be strings', value: { key, value } });
+      }
+    });
+  }
+
+  // Validate ports
   if (request.ports && Array.isArray(request.ports)) {
     request.ports.forEach((port, index) => {
-      const portErrors = validatePortMapping(port);
-      portErrors.forEach(error => {
-        errors.push({
-          ...error,
-          field: `ports[${index}].${error.field}`
-        });
-      });
-    });
-
-    // Check for port conflicts
-    const hostPorts = request.ports.map(p => p.hostPort);
-    const duplicatePorts = hostPorts.filter((port, index) => hostPorts.indexOf(port) !== index);
-    if (duplicatePorts.length > 0) {
-      errors.push({
-        field: 'ports',
-        message: `Duplicate host ports found: ${[...new Set(duplicatePorts)].join(', ')}`,
-        value: duplicatePorts
-      });
-    }
-  }
-
-  // Validate volumes if provided
-  if (request.volumes && Array.isArray(request.volumes)) {
-    request.volumes.forEach((volume, index) => {
-      const volumeErrors = validateVolumeMapping(volume);
-      volumeErrors.forEach(error => {
-        errors.push({
-          ...error,
-          field: `volumes[${index}].${error.field}`
-        });
-      });
-    });
-  }
-
-  // Validate resource limits if provided
-  if (request.resources) {
-    const resourceErrors = validateResourceLimits(request.resources);
-    resourceErrors.forEach(error => {
-      errors.push({
-        ...error,
-        field: `resources.${error.field}`
-      });
-    });
-  }
-
-  // Validate health check if provided
-  if (request.healthCheck) {
-    const healthErrors = validateHealthCheck(request.healthCheck);
-    healthErrors.forEach(error => {
-      errors.push({
-        ...error,
-        field: `healthCheck.${error.field}`
-      });
-    });
-  }
-
-  // Validate security options if provided
-  if (request.security) {
-    const securityErrors = validateSecurityOptions(request.security);
-    securityErrors.forEach(error => {
-      errors.push({
-        ...error,
-        field: `security.${error.field}`
-      });
-    });
-  }
-
-  // Validate networks if provided
-  if (request.networks && Array.isArray(request.networks)) {
-    request.networks.forEach((network, index) => {
-      if (typeof network !== 'string') {
-        errors.push({
-          field: `networks[${index}]`,
-          message: 'Network name must be a string',
-          value: network
+      const portValidation = validatePortMapping(port);
+      if (!portValidation.isValid) {
+        portValidation.errors.forEach(error => {
+          errors.push({ 
+            field: `ports[${index}].${error.field}`, 
+            message: error.message, 
+            value: error.value 
+          });
         });
       }
     });
   }
 
-  // Validate labels if provided
-  if (request.labels) {
-    if (typeof request.labels !== 'object' || request.labels === null) {
-      errors.push({
-        field: 'labels',
-        message: 'Labels must be an object',
-        value: request.labels
-      });
-    } else {
-      Object.entries(request.labels).forEach(([key, value]) => {
-        if (typeof value !== 'string') {
-          errors.push({
-            field: `labels.${key}`,
-            message: 'Label value must be a string',
-            value: value
+  // Validate volumes
+  if (request.volumes && Array.isArray(request.volumes)) {
+    request.volumes.forEach((volume, index) => {
+      const volumeValidation = validateVolumeMapping(volume);
+      if (!volumeValidation.isValid) {
+        volumeValidation.errors.forEach(error => {
+          errors.push({ 
+            field: `volumes[${index}].${error.field}`, 
+            message: error.message, 
+            value: error.value 
           });
-        }
+        });
+      }
+    });
+  }
+
+  // Validate networks
+  if (request.networks && !Array.isArray(request.networks)) {
+    errors.push({ field: 'networks', message: 'Networks must be an array of strings' });
+  } else if (request.networks) {
+    request.networks.forEach((network, index) => {
+      if (typeof network !== 'string' || network.trim().length === 0) {
+        errors.push({ 
+          field: `networks[${index}]`, 
+          message: 'Network name must be a non-empty string', 
+          value: network 
+        });
+      }
+    });
+  }
+
+  // Validate restart policy
+  if (request.restartPolicy) {
+    const restartPolicyValidation = validateRestartPolicy(request.restartPolicy);
+    if (!restartPolicyValidation.isValid) {
+      errors.push(...restartPolicyValidation.errors);
+    }
+  }
+
+  // Validate resource limits
+  if (request.resources) {
+    const resourceValidation = validateResourceLimits(request.resources);
+    if (!resourceValidation.isValid) {
+      resourceValidation.errors.forEach(error => {
+        errors.push({ 
+          field: `resources.${error.field}`, 
+          message: error.message, 
+          value: error.value 
+        });
+      });
+    }
+  }
+
+  // Validate health check
+  if (request.healthCheck) {
+    const healthCheckValidation = validateHealthCheck(request.healthCheck);
+    if (!healthCheckValidation.isValid) {
+      healthCheckValidation.errors.forEach(error => {
+        errors.push({ 
+          field: `healthCheck.${error.field}`, 
+          message: error.message, 
+          value: error.value 
+        });
+      });
+    }
+  }
+
+  // Validate security options
+  if (request.security) {
+    const securityValidation = validateSecurityOptions(request.security);
+    if (!securityValidation.isValid) {
+      securityValidation.errors.forEach(error => {
+        errors.push({ 
+          field: `security.${error.field}`, 
+          message: error.message, 
+          value: error.value 
+        });
       });
     }
   }
@@ -899,11 +361,11 @@ export function validateCreateContainerRequest(request: CreateContainerRequest):
   const stringFields = ['workingDir', 'hostname', 'domainname'];
   stringFields.forEach(field => {
     const value = (request as any)[field];
-    if (value !== undefined && typeof value !== 'string') {
-      errors.push({
-        field,
-        message: `${field} must be a string`,
-        value
+    if (value !== undefined && (typeof value !== 'string' || value.trim().length === 0)) {
+      errors.push({ 
+        field, 
+        message: `${field} must be a non-empty string if provided`, 
+        value 
       });
     }
   });
@@ -914,18 +376,18 @@ export function validateCreateContainerRequest(request: CreateContainerRequest):
     const value = (request as any)[field];
     if (value !== undefined) {
       if (!Array.isArray(value)) {
-        errors.push({
-          field,
-          message: `${field} must be an array`,
-          value
+        errors.push({ 
+          field, 
+          message: `${field} must be an array if provided`, 
+          value 
         });
       } else {
         value.forEach((item, index) => {
           if (typeof item !== 'string') {
-            errors.push({
-              field: `${field}[${index}]`,
-              message: `${field} items must be strings`,
-              value: item
+            errors.push({ 
+              field: `${field}[${index}]`, 
+              message: `${field} items must be strings`, 
+              value: item 
             });
           }
         });
@@ -933,12 +395,26 @@ export function validateCreateContainerRequest(request: CreateContainerRequest):
     }
   });
 
-  // Validate autoRemove if provided
+  // Validate labels
+  if (request.labels && typeof request.labels !== 'object') {
+    errors.push({ field: 'labels', message: 'Labels must be an object' });
+  } else if (request.labels) {
+    Object.entries(request.labels).forEach(([key, value]) => {
+      if (typeof key !== 'string' || key.trim().length === 0) {
+        errors.push({ field: 'labels', message: 'Label keys must be non-empty strings', value: key });
+      }
+      if (typeof value !== 'string') {
+        errors.push({ field: 'labels', message: 'Label values must be strings', value: { key, value } });
+      }
+    });
+  }
+
+  // Validate autoRemove
   if (request.autoRemove !== undefined && typeof request.autoRemove !== 'boolean') {
-    errors.push({
-      field: 'autoRemove',
-      message: 'autoRemove must be a boolean',
-      value: request.autoRemove
+    errors.push({ 
+      field: 'autoRemove', 
+      message: 'autoRemove must be a boolean if provided', 
+      value: request.autoRemove 
     });
   }
 
@@ -950,30 +426,424 @@ export function validateCreateContainerRequest(request: CreateContainerRequest):
 }
 
 /**
- * Utility function to check for port conflicts across multiple containers
+ * Validates port mapping configuration
  */
-export function validatePortConflicts(containers: ContainerConfig[]): ValidationError[] {
+export function validatePortMapping(port: PortMapping): ValidationResult<PortMapping> {
   const errors: ValidationError[] = [];
-  const portMap = new Map<number, string[]>();
 
-  containers.forEach(container => {
-    container.ports.forEach(port => {
-      if (!portMap.has(port.hostPort)) {
-        portMap.set(port.hostPort, []);
-      }
-      portMap.get(port.hostPort)!.push(container.name);
+  // Validate host port
+  if (typeof port.hostPort !== 'number' || !Number.isInteger(port.hostPort)) {
+    errors.push({ field: 'hostPort', message: 'Host port must be an integer', value: port.hostPort });
+  } else if (port.hostPort < 1 || port.hostPort > 65535) {
+    errors.push({ field: 'hostPort', message: 'Host port must be between 1 and 65535', value: port.hostPort });
+  }
+
+  // Validate container port
+  if (typeof port.containerPort !== 'number' || !Number.isInteger(port.containerPort)) {
+    errors.push({ field: 'containerPort', message: 'Container port must be an integer', value: port.containerPort });
+  } else if (port.containerPort < 1 || port.containerPort > 65535) {
+    errors.push({ field: 'containerPort', message: 'Container port must be between 1 and 65535', value: port.containerPort });
+  }
+
+  // Validate protocol
+  if (!['tcp', 'udp'].includes(port.protocol)) {
+    errors.push({ field: 'protocol', message: 'Protocol must be either "tcp" or "udp"', value: port.protocol });
+  }
+
+  // Validate optional description
+  if (port.description !== undefined && (typeof port.description !== 'string' || port.description.trim().length === 0)) {
+    errors.push({ field: 'description', message: 'Description must be a non-empty string if provided', value: port.description });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? port : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates volume mapping configuration
+ */
+export function validateVolumeMapping(volume: VolumeMapping): ValidationResult<VolumeMapping> {
+  const errors: ValidationError[] = [];
+
+  // Validate host path
+  if (!volume.hostPath || typeof volume.hostPath !== 'string' || volume.hostPath.trim().length === 0) {
+    errors.push({ field: 'hostPath', message: 'Host path is required and must be a non-empty string' });
+  } else if (!path.isAbsolute(volume.hostPath)) {
+    errors.push({ field: 'hostPath', message: 'Host path must be an absolute path', value: volume.hostPath });
+  }
+
+  // Validate container path
+  if (!volume.containerPath || typeof volume.containerPath !== 'string' || volume.containerPath.trim().length === 0) {
+    errors.push({ field: 'containerPath', message: 'Container path is required and must be a non-empty string' });
+  } else if (!path.isAbsolute(volume.containerPath)) {
+    errors.push({ field: 'containerPath', message: 'Container path must be an absolute path', value: volume.containerPath });
+  }
+
+  // Validate mode
+  if (!['ro', 'rw'].includes(volume.mode)) {
+    errors.push({ field: 'mode', message: 'Mode must be either "ro" (read-only) or "rw" (read-write)', value: volume.mode });
+  }
+
+  // Validate optional description
+  if (volume.description !== undefined && (typeof volume.description !== 'string' || volume.description.trim().length === 0)) {
+    errors.push({ field: 'description', message: 'Description must be a non-empty string if provided', value: volume.description });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? volume : undefined,
+    errors
+  };
+}/**
+ *
+ Validates restart policy
+ */
+export function validateRestartPolicy(policy: RestartPolicy): ValidationResult<RestartPolicy> {
+  const errors: ValidationError[] = [];
+  const validPolicies: RestartPolicy[] = ['no', 'always', 'unless-stopped', 'on-failure'];
+
+  if (!validPolicies.includes(policy)) {
+    errors.push({ 
+      field: 'restartPolicy', 
+      message: `Restart policy must be one of: ${validPolicies.join(', ')}`, 
+      value: policy 
     });
-  });
+  }
 
-  portMap.forEach((containerNames, port) => {
-    if (containerNames.length > 1) {
-      errors.push({
-        field: 'ports',
-        message: `Port ${port} is used by multiple containers: ${containerNames.join(', ')}`,
-        value: { port, containers: containerNames }
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? policy : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates resource limits configuration
+ */
+export function validateResourceLimits(resources: ResourceLimits): ValidationResult<ResourceLimits> {
+  const errors: ValidationError[] = [];
+
+  // Validate memory limit (in MB)
+  if (resources.memory !== undefined) {
+    if (typeof resources.memory !== 'number' || !Number.isInteger(resources.memory)) {
+      errors.push({ field: 'memory', message: 'Memory limit must be an integer (MB)', value: resources.memory });
+    } else if (resources.memory <= 0) {
+      errors.push({ field: 'memory', message: 'Memory limit must be greater than 0', value: resources.memory });
+    } else if (resources.memory > 1048576) { // 1TB in MB
+      errors.push({ field: 'memory', message: 'Memory limit cannot exceed 1TB (1048576 MB)', value: resources.memory });
+    }
+  }
+
+  // Validate CPU limit
+  if (resources.cpus !== undefined) {
+    if (typeof resources.cpus !== 'number') {
+      errors.push({ field: 'cpus', message: 'CPU limit must be a number', value: resources.cpus });
+    } else if (resources.cpus <= 0) {
+      errors.push({ field: 'cpus', message: 'CPU limit must be greater than 0', value: resources.cpus });
+    } else if (resources.cpus > 128) { // Reasonable upper limit
+      errors.push({ field: 'cpus', message: 'CPU limit cannot exceed 128', value: resources.cpus });
+    }
+  }
+
+  // Validate disk space limit (in MB)
+  if (resources.diskSpace !== undefined) {
+    if (typeof resources.diskSpace !== 'number' || !Number.isInteger(resources.diskSpace)) {
+      errors.push({ field: 'diskSpace', message: 'Disk space limit must be an integer (MB)', value: resources.diskSpace });
+    } else if (resources.diskSpace <= 0) {
+      errors.push({ field: 'diskSpace', message: 'Disk space limit must be greater than 0', value: resources.diskSpace });
+    }
+  }
+
+  // Validate PIDs limit
+  if (resources.pidsLimit !== undefined) {
+    if (typeof resources.pidsLimit !== 'number' || !Number.isInteger(resources.pidsLimit)) {
+      errors.push({ field: 'pidsLimit', message: 'PIDs limit must be an integer', value: resources.pidsLimit });
+    } else if (resources.pidsLimit <= 0) {
+      errors.push({ field: 'pidsLimit', message: 'PIDs limit must be greater than 0', value: resources.pidsLimit });
+    }
+  }
+
+  // Validate ulimits
+  if (resources.ulimits !== undefined) {
+    if (!Array.isArray(resources.ulimits)) {
+      errors.push({ field: 'ulimits', message: 'Ulimits must be an array', value: resources.ulimits });
+    } else {
+      resources.ulimits.forEach((ulimit, index) => {
+        if (!ulimit.name || typeof ulimit.name !== 'string') {
+          errors.push({ 
+            field: `ulimits[${index}].name`, 
+            message: 'Ulimit name is required and must be a string', 
+            value: ulimit.name 
+          });
+        }
+
+        if (typeof ulimit.soft !== 'number' || !Number.isInteger(ulimit.soft) || ulimit.soft < 0) {
+          errors.push({ 
+            field: `ulimits[${index}].soft`, 
+            message: 'Ulimit soft value must be a non-negative integer', 
+            value: ulimit.soft 
+          });
+        }
+
+        if (typeof ulimit.hard !== 'number' || !Number.isInteger(ulimit.hard) || ulimit.hard < 0) {
+          errors.push({ 
+            field: `ulimits[${index}].hard`, 
+            message: 'Ulimit hard value must be a non-negative integer', 
+            value: ulimit.hard 
+          });
+        }
+
+        if (typeof ulimit.soft === 'number' && typeof ulimit.hard === 'number' && ulimit.soft > ulimit.hard) {
+          errors.push({ 
+            field: `ulimits[${index}]`, 
+            message: 'Ulimit soft value cannot be greater than hard value', 
+            value: { soft: ulimit.soft, hard: ulimit.hard } 
+          });
+        }
       });
     }
-  });
+  }
 
-  return errors;
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? resources : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates health check configuration
+ */
+export function validateHealthCheck(healthCheck: HealthCheck): ValidationResult<HealthCheck> {
+  const errors: ValidationError[] = [];
+
+  // Validate test command
+  if (!healthCheck.test || !Array.isArray(healthCheck.test) || healthCheck.test.length === 0) {
+    errors.push({ field: 'test', message: 'Health check test is required and must be a non-empty array of strings' });
+  } else {
+    healthCheck.test.forEach((cmd, index) => {
+      if (typeof cmd !== 'string' || cmd.trim().length === 0) {
+        errors.push({ 
+          field: `test[${index}]`, 
+          message: 'Health check test commands must be non-empty strings', 
+          value: cmd 
+        });
+      }
+    });
+  }
+
+  // Validate interval (in seconds)
+  if (healthCheck.interval !== undefined) {
+    if (typeof healthCheck.interval !== 'number' || !Number.isInteger(healthCheck.interval)) {
+      errors.push({ field: 'interval', message: 'Health check interval must be an integer (seconds)', value: healthCheck.interval });
+    } else if (healthCheck.interval <= 0) {
+      errors.push({ field: 'interval', message: 'Health check interval must be greater than 0', value: healthCheck.interval });
+    } else if (healthCheck.interval > 3600) { // 1 hour max
+      errors.push({ field: 'interval', message: 'Health check interval cannot exceed 3600 seconds (1 hour)', value: healthCheck.interval });
+    }
+  }
+
+  // Validate timeout (in seconds)
+  if (healthCheck.timeout !== undefined) {
+    if (typeof healthCheck.timeout !== 'number' || !Number.isInteger(healthCheck.timeout)) {
+      errors.push({ field: 'timeout', message: 'Health check timeout must be an integer (seconds)', value: healthCheck.timeout });
+    } else if (healthCheck.timeout <= 0) {
+      errors.push({ field: 'timeout', message: 'Health check timeout must be greater than 0', value: healthCheck.timeout });
+    } else if (healthCheck.timeout > 300) { // 5 minutes max
+      errors.push({ field: 'timeout', message: 'Health check timeout cannot exceed 300 seconds (5 minutes)', value: healthCheck.timeout });
+    }
+  }
+
+  // Validate retries
+  if (healthCheck.retries !== undefined) {
+    if (typeof healthCheck.retries !== 'number' || !Number.isInteger(healthCheck.retries)) {
+      errors.push({ field: 'retries', message: 'Health check retries must be an integer', value: healthCheck.retries });
+    } else if (healthCheck.retries < 0) {
+      errors.push({ field: 'retries', message: 'Health check retries cannot be negative', value: healthCheck.retries });
+    } else if (healthCheck.retries > 10) {
+      errors.push({ field: 'retries', message: 'Health check retries cannot exceed 10', value: healthCheck.retries });
+    }
+  }
+
+  // Validate start period (in seconds)
+  if (healthCheck.startPeriod !== undefined) {
+    if (typeof healthCheck.startPeriod !== 'number' || !Number.isInteger(healthCheck.startPeriod)) {
+      errors.push({ field: 'startPeriod', message: 'Health check start period must be an integer (seconds)', value: healthCheck.startPeriod });
+    } else if (healthCheck.startPeriod < 0) {
+      errors.push({ field: 'startPeriod', message: 'Health check start period cannot be negative', value: healthCheck.startPeriod });
+    } else if (healthCheck.startPeriod > 3600) { // 1 hour max
+      errors.push({ field: 'startPeriod', message: 'Health check start period cannot exceed 3600 seconds (1 hour)', value: healthCheck.startPeriod });
+    }
+  }
+
+  // Cross-validation: timeout should be less than interval
+  if (healthCheck.timeout !== undefined && healthCheck.interval !== undefined && healthCheck.timeout >= healthCheck.interval) {
+    errors.push({ 
+      field: 'timeout', 
+      message: 'Health check timeout must be less than interval', 
+      value: { timeout: healthCheck.timeout, interval: healthCheck.interval } 
+    });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? healthCheck : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates security options configuration
+ */
+export function validateSecurityOptions(security: SecurityOptions): ValidationResult<SecurityOptions> {
+  const errors: ValidationError[] = [];
+
+  // Validate privileged flag
+  if (security.privileged !== undefined && typeof security.privileged !== 'boolean') {
+    errors.push({ field: 'privileged', message: 'Privileged must be a boolean', value: security.privileged });
+  }
+
+  // Validate readOnly flag
+  if (security.readOnly !== undefined && typeof security.readOnly !== 'boolean') {
+    errors.push({ field: 'readOnly', message: 'ReadOnly must be a boolean', value: security.readOnly });
+  }
+
+  // Validate user
+  if (security.user !== undefined && (typeof security.user !== 'string' || security.user.trim().length === 0)) {
+    errors.push({ field: 'user', message: 'User must be a non-empty string if provided', value: security.user });
+  }
+
+  // Validate capabilities
+  if (security.capabilities !== undefined) {
+    if (typeof security.capabilities !== 'object' || security.capabilities === null) {
+      errors.push({ field: 'capabilities', message: 'Capabilities must be an object', value: security.capabilities });
+    } else {
+      // Validate add capabilities
+      if (security.capabilities.add !== undefined) {
+        if (!Array.isArray(security.capabilities.add)) {
+          errors.push({ field: 'capabilities.add', message: 'Capabilities add must be an array', value: security.capabilities.add });
+        } else {
+          security.capabilities.add.forEach((cap, index) => {
+            if (typeof cap !== 'string' || cap.trim().length === 0) {
+              errors.push({ 
+                field: `capabilities.add[${index}]`, 
+                message: 'Capability names must be non-empty strings', 
+                value: cap 
+              });
+            }
+          });
+        }
+      }
+
+      // Validate drop capabilities
+      if (security.capabilities.drop !== undefined) {
+        if (!Array.isArray(security.capabilities.drop)) {
+          errors.push({ field: 'capabilities.drop', message: 'Capabilities drop must be an array', value: security.capabilities.drop });
+        } else {
+          security.capabilities.drop.forEach((cap, index) => {
+            if (typeof cap !== 'string' || cap.trim().length === 0) {
+              errors.push({ 
+                field: `capabilities.drop[${index}]`, 
+                message: 'Capability names must be non-empty strings', 
+                value: cap 
+              });
+            }
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? security : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates that host paths exist and are accessible (for volume validation)
+ */
+export function validateHostPathExists(hostPath: string): ValidationResult<string> {
+  const errors: ValidationError[] = [];
+
+  try {
+    const stats = fs.statSync(hostPath);
+    if (!stats.isDirectory() && !stats.isFile()) {
+      errors.push({ 
+        field: 'hostPath', 
+        message: 'Host path must be a file or directory', 
+        value: hostPath 
+      });
+    }
+  } catch (error) {
+    errors.push({ 
+      field: 'hostPath', 
+      message: 'Host path does not exist or is not accessible', 
+      value: hostPath 
+    });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? hostPath : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates that a port is not already in use on the host
+ */
+export function validatePortAvailability(port: number): ValidationResult<number> {
+  const errors: ValidationError[] = [];
+
+  // This is a basic validation - in a real implementation, you would check
+  // if the port is actually available on the system
+  if (port < 1024 && process.getuid && process.getuid() !== 0) {
+    errors.push({ 
+      field: 'hostPort', 
+      message: 'Ports below 1024 require root privileges', 
+      value: port 
+    });
+  }
+
+  // Common reserved ports that should be avoided
+  const reservedPorts = [22, 25, 53, 80, 110, 143, 443, 993, 995];
+  if (reservedPorts.includes(port)) {
+    errors.push({ 
+      field: 'hostPort', 
+      message: `Port ${port} is commonly reserved for system services`, 
+      value: port 
+    });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? port : undefined,
+    errors
+  };
+}
+
+/**
+ * Validates container name uniqueness (would typically check against existing containers)
+ */
+export function validateContainerNameUniqueness(name: string, existingNames: string[] = []): ValidationResult<string> {
+  const errors: ValidationError[] = [];
+
+  if (existingNames.includes(name)) {
+    errors.push({ 
+      field: 'name', 
+      message: 'Container name must be unique', 
+      value: name 
+    });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    data: errors.length === 0 ? name : undefined,
+    errors
+  };
 }
