@@ -120,7 +120,7 @@ The project uses a comprehensive testing approach with Jest and Playwright:
 
 ### Test Types
 - **Unit Tests**: Co-located with source files, testing individual functions and classes
-- **Integration Tests**: Testing module interactions and API endpoints
+- **Integration Tests**: Testing module interactions and API endpoints with real file system operations
 - **E2E Tests**: Playwright for browser automation and user workflow testing
 - **Coverage Target**: Minimum 80% code coverage for core modules
 
@@ -134,6 +134,11 @@ The project uses a comprehensive testing approach with Jest and Playwright:
 - **Error Validation**: Improved error message validation in tests with detailed field-specific assertions
 - **Schema Testing**: Comprehensive validation schema testing with edge cases and boundary conditions
 - **Cross-Validation Testing**: Tests for logical relationships between configuration fields
+- **Real File System Integration**: Integration tests now use actual file system operations with temporary directories for realistic volume validation testing
+- **Multi-Container Scenarios**: Advanced port conflict testing across multiple container configurations
+- **Protocol-Specific Testing**: Comprehensive testing for mixed TCP/UDP port configurations
+- **Network Driver Testing**: Custom network creation tests with different Docker network drivers (bridge, overlay)
+- **Permission Validation**: Volume mount testing with file system permissions and accessibility checks
 
 ## Configuration
 
@@ -231,6 +236,7 @@ The validation system includes comprehensive unit tests with:
 - **Edge Case Testing**: Handles malformed data, missing fields, and boundary conditions
 - **TypeScript Strict Mode**: All tests comply with strict null checking and type safety
 - **Cross-Validation Testing**: Validates logical relationships between configuration fields
+- **Mock Isolation**: Validation utilities are properly mocked in tests for better isolation and faster execution
 
 ## Docker Service Implementation
 
@@ -281,6 +287,8 @@ interface NetworkingService {
 
 ### Recent Improvements
 - **Volume Validation Bug Fix**: Fixed issue where volume validation could fail when processing invalid data structures. The validation now properly checks for valid data before attempting host path validation, preventing runtime errors and ensuring reliable container configuration validation.
+- **Enhanced Test Isolation**: Improved test architecture by properly mocking validation utilities, ensuring better test isolation and more reliable test execution. This prevents external dependencies from affecting test results and improves overall test performance.
+- **Advanced Integration Testing**: Comprehensive integration tests now include real file system operations for volume validation, multi-container port conflict scenarios, mixed protocol configurations (TCP/UDP), reserved port handling, complex volume mapping with nested directories, and custom network creation with different drivers.
 
 ### Docker Service API
 
@@ -359,6 +367,7 @@ This project is currently in development. The following foundation tasks are com
 - **Container Operations**: Container listing functionality implemented with status mapping and port/volume extraction
 - **Networking Service**: Complete networking and storage validation with port conflict detection, host path validation, and network management
 - **Container Service**: Full container lifecycle management with integrated networking validation and comprehensive configuration validation
+- **Integration Testing**: Advanced integration tests with real file system operations, multi-container scenarios, and comprehensive validation coverage
 - **Next Steps**: App store functionality, monitoring system, and REST API endpoints
 
 See the [tasks.md](.kiro/specs/docker-container-manager/tasks.md) file for detailed implementation progress.
