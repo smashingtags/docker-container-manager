@@ -539,9 +539,43 @@ The Docker service includes comprehensive unit tests covering:
 - **Error Scenarios**: Connection failures, operation timeouts, and retry logic
 - **Edge Cases**: Missing image tags, network failures, and malformed responses
 
+## Monitoring Service Implementation
+
+The MonitoringService provides comprehensive container monitoring, logging, and health checking capabilities:
+
+### Key Features
+- **Real-time Metrics**: Live container statistics collection with caching for performance
+- **Log Management**: Advanced log streaming, export, and historical log access
+- **Health Monitoring**: Comprehensive container health checks with resource monitoring
+- **System Metrics**: System-wide resource monitoring (CPU, memory, disk, containers)
+- **Event-driven Updates**: Real-time metrics streaming using EventEmitter pattern
+- **Advanced Log Streaming**: Filtered log streaming with regex pattern support
+- **Log Export**: Multiple export formats (JSON, text) with customizable options
+- **Error Handling**: Robust error handling with custom error types and error preservation
+
+### MonitoringService API
+
+```typescript
+interface MonitoringService {
+  getContainerMetrics(id: string): Promise<ContainerStats>;
+  getSystemMetrics(): Promise<SystemMetrics>;
+  streamLogs(id: string, options?: LogOptions): EventEmitter;
+  checkHealth(id: string): Promise<HealthStatus>;
+  startMetricsCollection(): void;
+  stopMetricsCollection(): void;
+  streamContainerStats(id: string): EventEmitter;
+  getAllContainerMetrics(): Promise<Map<string, ContainerStats>>;
+  exportLogs(id: string, options?: ExportOptions): Promise<string>;
+  getHistoricalLogs(id: string, options?: HistoricalLogOptions): Promise<LogEntry[]>;
+  downloadLogs(id: string, format?: 'json' | 'text', options?: ExportOptions): Promise<DownloadResult>;
+  streamLogsAdvanced(id: string, options?: AdvancedLogOptions): Promise<EventEmitter>;
+  checkContainerHealth(id: string): Promise<HealthStatus>;
+}
+```
+
 ### Container Metrics Collection
 
-The Docker service now includes comprehensive container metrics collection through the `getContainerStats` method:
+The monitoring service includes comprehensive container metrics collection:
 
 #### Features
 - **Real-time Metrics**: Retrieves live container statistics from Docker daemon
@@ -552,6 +586,7 @@ The Docker service now includes comprehensive container metrics collection throu
 - **Timestamp Tracking**: Includes collection timestamp for metrics correlation
 - **Error Handling**: Robust error handling with DockerOperationError for failed operations
 - **Data Safety**: Null-safe parsing with fallback values for missing statistics
+- **Caching**: Intelligent caching with TTL for improved performance
 
 #### ContainerStats Interface
 ```typescript
@@ -589,7 +624,34 @@ console.log(`Network RX: ${(stats.network.rxBytes / 1024 / 1024).toFixed(2)} MB`
 console.log(`Disk Read: ${(stats.disk.readBytes / 1024 / 1024).toFixed(2)} MB`);
 ```
 
+### Log Management Features
+
+The monitoring service provides advanced log management capabilities:
+
+#### Log Streaming
+- **Real-time Streaming**: Live log streaming with WebSocket-like EventEmitter pattern
+- **Historical Access**: Retrieve historical logs with flexible time range filtering
+- **Advanced Filtering**: Regex-based log filtering for targeted log analysis
+- **Multiple Formats**: Support for timestamped and raw log formats
+- **Follow Mode**: Continuous log streaming for real-time monitoring
+
+#### Log Export and Download
+- **Multiple Formats**: Export logs in JSON or plain text format
+- **Flexible Options**: Customizable time ranges, timestamps, and filtering
+- **Structured Export**: JSON export includes container metadata and export options
+- **Download Ready**: Formatted downloads with proper MIME types and filenames
+- **Error Preservation**: Enhanced error handling that preserves specific error messages
+
+#### Health Monitoring
+- **Comprehensive Checks**: Multi-faceted health assessment including resource usage, stability, and error analysis
+- **Resource Thresholds**: Configurable CPU and memory usage thresholds with warning and critical levels
+- **Log Analysis**: Automatic error detection in recent container logs
+- **Stability Assessment**: Container restart and age analysis for stability evaluation
+- **Detailed Reporting**: Structured health reports with individual check results and overall status
+
 ### Error Handling
+- **MonitoringServiceError**: Custom error type for monitoring-specific failures
+- **Error Preservation**: Enhanced error handling that preserves original error context and specific error messages
 - **DockerConnectionError**: Thrown when Docker daemon connection fails
 - **DockerOperationError**: Thrown when Docker operations fail
 - **Retry Logic**: Automatic retry with configurable attempts and timeout

@@ -421,4 +421,328 @@ describe('MonitoringService', () => {
       Date.now = originalNow;
     });
   });
+
+  describe('exportLogs', () => {
+    const mockLogs = [
+      '2023-01-01T12:00:00.000Z INFO: Application started',
+      '2023-01-01T12:01:00.000Z WARN: High memory usage detected',
+      '2023-01-01T12:02:00.000Z ERROR: Database connection failed'
+    ];
+
+    beforeEach(() => {
+      mockDockerService.listContainers.mockResolvedValue([mockContainer]);
+      mockDockerService.getContainerLogs.mockResolvedValue(mockLogs);
+    });
+
+    it('should export logs in JSON format', async () => {
+      const result = await monitoringService.exportLogs('container123', {
+        since: new Date('2023-01-01T11:00:00Z'),
+        timestamps: true
+      });
+
+      const exportData = JSON.parse(result);
+      expect(exportData).toMatchObject({
+        containerId: 'container123',
+        containerName: 'test-container',
+        exportedAt: expect.any(String),
+        options: {
+          since: '2023-01-01T11:00:00.000Z',
+          timestamps: true
+        },
+        logs: mockLogs
+      });
+    });
+
+    it('should throw error for non-existent container', async () => {
+      mockDockerService.listContainers.mockResolvedValue([]);
+
+      await expect(monitoringService.exportLogs('nonexistent'))
+        .rejects.toThrow(MonitoringServiceError);
+      await expect(monitoringService.exportLogs('nonexistent'))
+        .rejects.toThrow('Container nonexistent not found');
+    });
+
+    it('should handle docker service errors', async () => {
+      mockDockerService.getContainerLogs.mockRejectedValue(new Error('Docker error'));
+
+      await expect(monitoringService.exportLogs('container123'))
+        .rejects.toThrow(MonitoringServiceError);
+    });
+  });
+
+  describe('getHistoricalLogs', () => {
+    const mockLogsWithTimestamps = [
+      '2023-01-01T12:00:00.000Z INFO: Application started',
+      '2023-01-01T12:01:00.000Z WARN: High memory usage detected',
+      '2023-01-01T12:02:00.000Z ERROR: Database connection failed'
+    ];
+
+    beforeEach(() => {
+      mockDockerService.listContainers.mockResolvedValue([mockContainer]);
+      mockDockerService.getContainerLogs.mockResolvedValue(mockLogsWithTimestamps);
+    });
+
+    it('should return parsed historical logs', async () => {
+      const result = await monitoringService.getHistoricalLogs('container123', {
+        tail: 100,
+        timestamps: true
+      });
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({
+        timestamp: new Date('2023-01-01T12:00:00.000Z'),
+        message: 'INFO: Application started'
+      });
+      expect(result[1]).toMatchObject({
+        timestamp: new Date('2023-01-01T12:01:00.000Z'),
+        message: 'WARN: High memory usage detected'
+      });
+    });
+
+    it('should handle logs without timestamps', async () => {
+      const logsWithoutTimestamps = ['Application started', 'Warning message', 'Error occurred'];
+      mockDockerService.getContainerLogs.mockResolvedValue(logsWithoutTimestamps);
+
+      const result = await monitoringService.getHistoricalLogs('container123', {
+        timestamps: false
+      });
+
+      expect(result).toHaveLength(3);
+      expect(result[0]?.message).toBe('Application started');
+      expect(result[0]?.timestamp).toBeInstanceOf(Date);
+    });
+
+    it('should filter out empty log entries', async () => {
+      const logsWithEmpty = ['Valid log entry', '', '   ', 'Another valid entry'];
+      mockDockerService.getContainerLogs.mockResolvedValue(logsWithEmpty);
+
+      const result = await monitoringService.getHistoricalLogs('container123');
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.message).toBe('Valid log entry');
+      expect(result[1]?.message).toBe('Another valid entry');
+    });
+  });
+
+  describe('downloadLogs', () => {
+    const mockLogs = ['Log entry 1', 'Log entry 2', 'Log entry 3'];
+
+    beforeEach(() => {
+      mockDockerService.listContainers.mockResolvedValue([mockContainer]);
+      mockDockerService.getContainerLogs.mockResolvedValue(mockLogs);
+    });
+
+    it('should download logs in text format', async () => {
+      const result = await monitoringService.downloadLogs('container123', 'text');
+
+      expect(result.filename).toMatch(/test-container-logs-.*\.txt/);
+      expect(result.mimeType).toBe('text/plain');
+      expect(result.content).toContain('Container: test-container (container123)');
+      expect(result.content).toContain('Log entry 1');
+    });
+
+    it('should download logs in JSON format', async () => {
+      const result = await monitoringService.downloadLogs('container123', 'json');
+
+      expect(result.filename).toMatch(/test-container-logs-.*\.json/);
+      expect(result.mimeType).toBe('application/json');
+      
+      const jsonContent = JSON.parse(result.content);
+      expect(jsonContent.containerId).toBe('container123');
+      expect(jsonContent.logs).toEqual(mockLogs);
+    });
+
+    it('should default to text format', async () => {
+      const result = await monitoringService.downloadLogs('container123');
+
+      expect(result.mimeType).toBe('text/plain');
+      expect(result.filename).toMatch(/\.txt$/);
+    });
+  });
+
+  describe('streamLogsAdvanced', () => {
+    beforeEach(() => {
+      mockDockerService.listContainers.mockResolvedValue([mockContainer]);
+      mockDockerService.getContainerLogs.mockResolvedValue([
+        '2023-01-01T12:00:00.000Z INFO: Application started',
+        '2023-01-01T12:01:00.000Z ERROR: Database error'
+      ]);
+    });
+
+    it('should stream logs with filtering', (done) => {
+      monitoringService.streamLogsAdvanced('container123', {
+        filter: 'ERROR',
+        timestamps: true
+      }).then((stream) => {
+        const receivedLogs: any[] = [];
+
+        stream.on('log', (logEntry) => {
+          receivedLogs.push(logEntry);
+        });
+
+        stream.on('error', done);
+
+        setTimeout(() => {
+          expect(receivedLogs).toHaveLength(1);
+          expect(receivedLogs[0].message).toContain('Database error');
+          expect(receivedLogs[0].level).toBe('error');
+          stream.emit('stop');
+          done();
+        }, 100);
+      }).catch(done);
+    });
+
+    it('should handle invalid regex filter', (done) => {
+      monitoringService.streamLogsAdvanced('container123', {
+        filter: '[invalid regex'
+      }).then((stream) => {
+        stream.on('error', (error) => {
+          expect(error).toBeInstanceOf(MonitoringServiceError);
+          expect(error.message).toContain('Invalid filter regex');
+          done();
+        });
+      }).catch(done);
+    });
+
+    it('should parse log levels correctly', (done) => {
+      monitoringService.streamLogsAdvanced('container123', {
+        timestamps: true
+      }).then((stream) => {
+        const receivedLogs: any[] = [];
+
+        stream.on('log', (logEntry) => {
+          receivedLogs.push(logEntry);
+        });
+
+        setTimeout(() => {
+          expect(receivedLogs).toHaveLength(2);
+          expect(receivedLogs[0].level).toBe('info');
+          expect(receivedLogs[1].level).toBe('error');
+          stream.emit('stop');
+          done();
+        }, 100);
+      }).catch(done);
+    });
+  });
+
+  describe('checkContainerHealth', () => {
+    beforeEach(() => {
+      mockDockerService.listContainers.mockResolvedValue([mockContainer]);
+      mockDockerService.getContainerStats.mockResolvedValue(mockContainerStats);
+      mockDockerService.getContainerLogs.mockResolvedValue(['INFO: Normal operation']);
+    });
+
+    it('should return healthy status for normal container', async () => {
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('healthy');
+      expect(result.checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'container-status',
+            status: 'pass'
+          }),
+          expect.objectContaining({
+            name: 'cpu-usage',
+            status: 'pass'
+          }),
+          expect.objectContaining({
+            name: 'memory-usage',
+            status: 'pass'
+          })
+        ])
+      );
+    });
+
+    it('should return unhealthy status for high CPU usage', async () => {
+      const highCpuStats = { ...mockContainerStats, cpu: 96 };
+      mockDockerService.getContainerStats.mockResolvedValue(highCpuStats);
+
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('unhealthy');
+      const cpuCheck = result.checks.find(check => check.name === 'cpu-usage');
+      expect(cpuCheck?.status).toBe('fail');
+      expect(cpuCheck?.message).toContain('Critical CPU usage');
+    });
+
+    it('should return unhealthy status for high memory usage', async () => {
+      const highMemoryStats = {
+        ...mockContainerStats,
+        memory: { ...mockContainerStats.memory, percentage: 96 }
+      };
+      mockDockerService.getContainerStats.mockResolvedValue(highMemoryStats);
+
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('unhealthy');
+      const memoryCheck = result.checks.find(check => check.name === 'memory-usage');
+      expect(memoryCheck?.status).toBe('fail');
+      expect(memoryCheck?.message).toContain('Critical memory usage');
+    });
+
+    it('should detect recent errors in logs', async () => {
+      const errorLogs = Array(15).fill('ERROR: Database connection failed');
+      mockDockerService.getContainerLogs.mockResolvedValue(errorLogs);
+
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('unhealthy');
+      const errorCheck = result.checks.find(check => check.name === 'error-logs');
+      expect(errorCheck?.status).toBe('fail');
+      expect(errorCheck?.message).toContain('High error rate');
+    });
+
+    it('should return unknown status for non-existent container', async () => {
+      mockDockerService.listContainers.mockResolvedValue([]);
+
+      const result = await monitoringService.checkContainerHealth('nonexistent');
+
+      expect(result.status).toBe('unknown');
+      expect(result.checks[0]).toMatchObject({
+        name: 'container-exists',
+        status: 'fail',
+        message: 'Container nonexistent not found'
+      });
+    });
+
+    it('should handle stopped containers', async () => {
+      const stoppedContainer = { ...mockContainer, status: 'stopped' as const };
+      mockDockerService.listContainers.mockResolvedValue([stoppedContainer]);
+
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('unhealthy');
+      const statusCheck = result.checks.find(check => check.name === 'container-status');
+      expect(statusCheck?.status).toBe('fail');
+      expect(statusCheck?.message).toBe('Container is stopped');
+    });
+
+    it('should handle recently created containers', async () => {
+      const recentContainer = {
+        ...mockContainer,
+        created: new Date(Date.now() - 30000) // 30 seconds ago
+      };
+      mockDockerService.listContainers.mockResolvedValue([recentContainer]);
+
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('unhealthy');
+      const stabilityCheck = result.checks.find(check => check.name === 'container-stability');
+      expect(stabilityCheck?.status).toBe('warn');
+      expect(stabilityCheck?.message).toContain('recently created');
+    });
+
+    it('should handle errors during health check', async () => {
+      mockDockerService.listContainers.mockRejectedValue(new Error('Docker error'));
+
+      const result = await monitoringService.checkContainerHealth('container123');
+
+      expect(result.status).toBe('unknown');
+      expect(result.checks[0]).toMatchObject({
+        name: 'health-check-error',
+        status: 'fail'
+      });
+    });
+  });
 });

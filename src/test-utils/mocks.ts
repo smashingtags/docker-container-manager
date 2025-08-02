@@ -106,6 +106,46 @@ export class MockDockerService implements DockerService {
       }
     };
   }
+
+  // Network management
+  async listNetworks(): Promise<Array<{ id: string; name: string; driver: string; scope: string }>> {
+    return [
+      { id: 'mock-network-1', name: 'bridge', driver: 'bridge', scope: 'local' },
+      { id: 'mock-network-2', name: 'host', driver: 'host', scope: 'local' }
+    ];
+  }
+
+  async createNetwork(name: string, options?: any): Promise<{ id: string; name: string }> {
+    return { id: 'mock-network-id', name };
+  }
+
+  async removeNetwork(id: string): Promise<void> {
+    // Mock implementation
+  }
+
+  // Volume management
+  async listVolumes(): Promise<Array<{ name: string; driver: string; mountpoint: string }>> {
+    return [
+      { name: 'mock-volume-1', driver: 'local', mountpoint: '/var/lib/docker/volumes/mock-volume-1' }
+    ];
+  }
+
+  async createVolume(name: string, options?: any): Promise<{ name: string; mountpoint: string }> {
+    return { name, mountpoint: `/var/lib/docker/volumes/${name}` };
+  }
+
+  async removeVolume(name: string): Promise<void> {
+    // Mock implementation
+  }
+
+  // Port and resource utilities
+  async getUsedPorts(): Promise<number[]> {
+    return [80, 443, 8080];
+  }
+
+  async validateHostPath(path: string): Promise<{ exists: boolean; accessible: boolean; isDirectory: boolean }> {
+    return { exists: true, accessible: true, isDirectory: true };
+  }
 }
 
 export class MockDatabaseService implements DatabaseService {

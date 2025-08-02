@@ -1,4 +1,4 @@
-import { ContainerStats } from '@/types/container.types';
+import { ContainerStats, Container } from '@/types/container.types';
 import { SystemMetrics, HealthStatus } from '@/types/api.types';
 import { DockerService } from '@/services/docker.service';
 import { EventEmitter } from 'events';
@@ -8,12 +8,17 @@ import * as fs from 'fs/promises';
 export interface MonitoringService {
   getContainerMetrics(id: string): Promise<ContainerStats>;
   getSystemMetrics(): Promise<SystemMetrics>;
-  streamLogs(id: string): EventEmitter;
+  streamLogs(id: string, options?: { tail?: number; follow?: boolean; timestamps?: boolean }): EventEmitter;
   checkHealth(id: string): Promise<HealthStatus>;
   startMetricsCollection(): void;
   stopMetricsCollection(): void;
   streamContainerStats(id: string): EventEmitter;
   getAllContainerMetrics(): Promise<Map<string, ContainerStats>>;
+  exportLogs(id: string, options?: { since?: Date; until?: Date; timestamps?: boolean }): Promise<string>;
+  getHistoricalLogs(id: string, options?: { tail?: number; since?: Date; until?: Date; timestamps?: boolean }): Promise<Array<{ timestamp: Date; message: string }>>;
+  downloadLogs(id: string, format?: 'json' | 'text', options?: { since?: Date; until?: Date; timestamps?: boolean }): Promise<{ filename: string; content: string; mimeType: string }>;
+  streamLogsAdvanced(id: string, options?: { tail?: number; follow?: boolean; timestamps?: boolean; since?: Date; filter?: string }): Promise<EventEmitter>;
+  checkContainerHealth(id: string): Promise<HealthStatus>;
 }
 
 export class MonitoringServiceError extends Error {
@@ -75,14 +80,220 @@ export class MonitoringServiceImpl implements MonitoringService {
     }
   }
 
-  streamLogs(id: string): EventEmitter {
-    // Implementation will be added in task 5.2
-    throw new Error('Not implemented');
+  streamLogs(id: string, options?: { tail?: number; follow?: boolean; timestamps?: boolean }): EventEmitter {
+    const emitter = new EventEmitter();
+    let logInterval: NodeJS.Timeout | null = null;
+    let lastLogTimestamp: Date | undefined;
+
+    const startLogStreaming = async () => {
+      try {
+        // Verify container exists
+        const containers = await this.dockerService.listContainers();
+        const container = containers.find(c => c.id === id);
+        
+        if (!container) {
+          emitter.emit('error', new MonitoringServiceError(`Container ${id} not found`));
+          return;
+        }
+
+        // Get initial logs
+        const initialLogs = await this.dockerService.getContainerLogs(id, {
+          tail: options?.tail || 100,
+          timestamps: options?.timestamps || true,
+          follow: false
+        });
+
+        // Emit initial logs
+        initialLogs.forEach(log => {
+          emitter.emit('log', {
+            timestamp: new Date(),
+            message: log,
+            containerId: id,
+            containerName: container.name
+          });
+        });
+
+        // Set up streaming if follow is enabled
+        if (options?.follow) {
+          lastLogTimestamp = new Date();
+          
+          logInterval = setInterval(async () => {
+            try {
+              const newLogs = await this.dockerService.getContainerLogs(id, {
+                since: lastLogTimestamp,
+                timestamps: options?.timestamps || true,
+                follow: false
+              });
+
+              if (newLogs.length > 0) {
+                lastLogTimestamp = new Date();
+                newLogs.forEach(log => {
+                  emitter.emit('log', {
+                    timestamp: new Date(),
+                    message: log,
+                    containerId: id,
+                    containerName: container.name
+                  });
+                });
+              }
+            } catch (error) {
+              emitter.emit('error', new MonitoringServiceError(
+                `Failed to stream logs for container ${id}`,
+                error as Error
+              ));
+            }
+          }, 1000); // Check for new logs every second
+        }
+
+        emitter.on('stop', () => {
+          if (logInterval) {
+            clearInterval(logInterval);
+            logInterval = null;
+          }
+        });
+
+      } catch (error) {
+        emitter.emit('error', new MonitoringServiceError(
+          `Failed to start log streaming for container ${id}`,
+          error as Error
+        ));
+      }
+    };
+
+    // Start streaming asynchronously
+    setImmediate(startLogStreaming);
+
+    return emitter;
   }
 
   async checkHealth(id: string): Promise<HealthStatus> {
-    // Implementation will be added in task 5.2
-    throw new Error('Not implemented');
+    try {
+      const containers = await this.dockerService.listContainers();
+      const container = containers.find(c => c.id === id);
+      
+      if (!container) {
+        return {
+          status: 'unknown',
+          checks: [{
+            name: 'container-exists',
+            status: 'fail',
+            message: `Container ${id} not found`
+          }],
+          timestamp: new Date()
+        };
+      }
+
+      const checks: Array<{
+        name: string;
+        status: 'pass' | 'fail' | 'warn';
+        message?: string;
+      }> = [];
+
+      // Check container status
+      if (container.status === 'running') {
+        checks.push({
+          name: 'container-status',
+          status: 'pass',
+          message: 'Container is running'
+        });
+      } else {
+        checks.push({
+          name: 'container-status',
+          status: 'fail',
+          message: `Container is ${container.status}`
+        });
+      }
+
+      // Check resource usage if container is running
+      if (container.status === 'running') {
+        try {
+          const stats = await this.dockerService.getContainerStats(id);
+          
+          // Check CPU usage
+          if (stats.cpu > 90) {
+            checks.push({
+              name: 'cpu-usage',
+              status: 'warn',
+              message: `High CPU usage: ${stats.cpu.toFixed(1)}%`
+            });
+          } else {
+            checks.push({
+              name: 'cpu-usage',
+              status: 'pass',
+              message: `CPU usage: ${stats.cpu.toFixed(1)}%`
+            });
+          }
+
+          // Check memory usage
+          if (stats.memory.percentage > 90) {
+            checks.push({
+              name: 'memory-usage',
+              status: 'warn',
+              message: `High memory usage: ${stats.memory.percentage.toFixed(1)}%`
+            });
+          } else {
+            checks.push({
+              name: 'memory-usage',
+              status: 'pass',
+              message: `Memory usage: ${stats.memory.percentage.toFixed(1)}%`
+            });
+          }
+
+          // Check if container has been restarting recently
+          const containerAge = Date.now() - container.created.getTime();
+          if (containerAge < 300000) { // Less than 5 minutes old
+            checks.push({
+              name: 'container-stability',
+              status: 'warn',
+              message: 'Container was recently created/restarted'
+            });
+          } else {
+            checks.push({
+              name: 'container-stability',
+              status: 'pass',
+              message: 'Container has been stable'
+            });
+          }
+
+        } catch (error) {
+          checks.push({
+            name: 'resource-monitoring',
+            status: 'warn',
+            message: 'Unable to retrieve resource metrics'
+          });
+        }
+      }
+
+      // Determine overall health status
+      const hasFailures = checks.some(check => check.status === 'fail');
+      const hasWarnings = checks.some(check => check.status === 'warn');
+      
+      let overallStatus: 'healthy' | 'unhealthy' | 'unknown';
+      if (hasFailures) {
+        overallStatus = 'unhealthy';
+      } else if (hasWarnings) {
+        overallStatus = 'unhealthy'; // Treat warnings as unhealthy for now
+      } else {
+        overallStatus = 'healthy';
+      }
+
+      return {
+        status: overallStatus,
+        checks,
+        timestamp: new Date()
+      };
+
+    } catch (error) {
+      return {
+        status: 'unknown',
+        checks: [{
+          name: 'health-check-error',
+          status: 'fail',
+          message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        timestamp: new Date()
+      };
+    }
   }
 
   startMetricsCollection(): void {
@@ -203,6 +414,454 @@ export class MonitoringServiceImpl implements MonitoringService {
     }
   }
 
+  async exportLogs(id: string, options?: { since?: Date; until?: Date; timestamps?: boolean }): Promise<string> {
+    try {
+      // Verify container exists
+      const containers = await this.dockerService.listContainers();
+      const container = containers.find(c => c.id === id);
+      
+      if (!container) {
+        throw new MonitoringServiceError(`Container ${id} not found`);
+      }
+
+      // Get logs with specified options
+      const logs = await this.dockerService.getContainerLogs(id, {
+        since: options?.since,
+        until: options?.until,
+        timestamps: options?.timestamps || true,
+        tail: 0 // Get all logs for export
+      });
+
+      // Format logs for export
+      const exportData = {
+        containerId: id,
+        containerName: container.name,
+        exportedAt: new Date().toISOString(),
+        options: {
+          since: options?.since?.toISOString(),
+          until: options?.until?.toISOString(),
+          timestamps: options?.timestamps
+        },
+        logs: logs
+      };
+
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      // Re-throw MonitoringServiceError as-is to preserve specific error messages
+      if (error instanceof MonitoringServiceError) {
+        throw error;
+      }
+      throw new MonitoringServiceError(
+        `Failed to export logs for container ${id}`,
+        error as Error
+      );
+    }
+  }
+
+  async getHistoricalLogs(id: string, options?: { tail?: number; since?: Date; until?: Date; timestamps?: boolean }): Promise<Array<{ timestamp: Date; message: string }>> {
+    try {
+      // Verify container exists
+      const containers = await this.dockerService.listContainers();
+      const container = containers.find(c => c.id === id);
+      
+      if (!container) {
+        throw new MonitoringServiceError(`Container ${id} not found`);
+      }
+
+      // Get logs with specified options
+      const logs = await this.dockerService.getContainerLogs(id, {
+        since: options?.since,
+        until: options?.until,
+        timestamps: options?.timestamps !== false, // Default to true
+        tail: options?.tail || 1000
+      });
+
+      // Parse logs into structured format
+      return logs.map(log => {
+        let timestamp = new Date();
+        let message = log;
+
+        // If timestamps are enabled, try to parse them
+        if (options?.timestamps !== false) {
+          const timestampMatch = log.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(.*)$/);
+          if (timestampMatch && timestampMatch[1] && timestampMatch[2]) {
+            timestamp = new Date(timestampMatch[1]);
+            message = timestampMatch[2];
+          }
+        }
+
+        return {
+          timestamp,
+          message: message.trim()
+        };
+      }).filter(entry => entry.message.length > 0);
+    } catch (error) {
+      throw new MonitoringServiceError(
+        `Failed to get historical logs for container ${id}`,
+        error as Error
+      );
+    }
+  }
+
+  async downloadLogs(id: string, format: 'json' | 'text' = 'text', options?: { since?: Date; until?: Date; timestamps?: boolean }): Promise<{ filename: string; content: string; mimeType: string }> {
+    try {
+      const containers = await this.dockerService.listContainers();
+      const container = containers.find(c => c.id === id);
+      
+      if (!container) {
+        throw new MonitoringServiceError(`Container ${id} not found`);
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      let filename: string;
+      let content: string;
+      let mimeType: string;
+
+      if (format === 'json') {
+        filename = `${container.name}-logs-${timestamp}.json`;
+        content = await this.exportLogs(id, options);
+        mimeType = 'application/json';
+      } else {
+        filename = `${container.name}-logs-${timestamp}.txt`;
+        const logs = await this.dockerService.getContainerLogs(id, {
+          since: options?.since,
+          until: options?.until,
+          timestamps: options?.timestamps || true,
+          tail: 0
+        });
+        
+        const header = [
+          `Container: ${container.name} (${id})`,
+          `Exported: ${new Date().toISOString()}`,
+          `Options: ${JSON.stringify(options || {})}`,
+          '='.repeat(80),
+          ''
+        ].join('\n');
+        
+        content = header + logs.join('\n');
+        mimeType = 'text/plain';
+      }
+
+      return { filename, content, mimeType };
+    } catch (error) {
+      throw new MonitoringServiceError(
+        `Failed to download logs for container ${id}`,
+        error as Error
+      );
+    }
+  }
+
+  async streamLogsAdvanced(id: string, options?: { 
+    tail?: number; 
+    follow?: boolean; 
+    timestamps?: boolean;
+    since?: Date;
+    filter?: string; // Regex pattern to filter log lines
+  }): Promise<EventEmitter> {
+    const emitter = new EventEmitter();
+    let logInterval: NodeJS.Timeout | null = null;
+    let lastLogTimestamp: Date | undefined;
+    let filterRegex: RegExp | undefined;
+
+    // Compile filter regex if provided
+    if (options?.filter) {
+      try {
+        filterRegex = new RegExp(options.filter, 'i');
+      } catch (error) {
+        // Emit error on next tick to allow error handler to be attached
+        setImmediate(() => {
+          emitter.emit('error', new MonitoringServiceError(`Invalid filter regex: ${options.filter}`));
+        });
+        return emitter;
+      }
+    }
+
+    const startLogStreaming = async () => {
+      try {
+        // Verify container exists
+        const containers = await this.dockerService.listContainers();
+        const container = containers.find(c => c.id === id);
+        
+        if (!container) {
+          emitter.emit('error', new MonitoringServiceError(`Container ${id} not found`));
+          return;
+        }
+
+        // Get initial logs
+        const initialLogs = await this.dockerService.getContainerLogs(id, {
+          tail: options?.tail || 100,
+          timestamps: options?.timestamps || true,
+          since: options?.since,
+          follow: false
+        });
+
+        // Process and emit initial logs
+        initialLogs.forEach(log => {
+          const logEntry = this.parseLogEntry(log, container, options?.timestamps);
+          
+          // Apply filter if specified
+          if (!filterRegex || filterRegex.test(logEntry.message)) {
+            emitter.emit('log', logEntry);
+          }
+        });
+
+        // Set up streaming if follow is enabled
+        if (options?.follow) {
+          lastLogTimestamp = new Date();
+          
+          logInterval = setInterval(async () => {
+            try {
+              const newLogs = await this.dockerService.getContainerLogs(id, {
+                since: lastLogTimestamp,
+                timestamps: options?.timestamps || true,
+                follow: false
+              });
+
+              if (newLogs.length > 0) {
+                lastLogTimestamp = new Date();
+                newLogs.forEach(log => {
+                  const logEntry = this.parseLogEntry(log, container, options?.timestamps);
+                  
+                  // Apply filter if specified
+                  if (!filterRegex || filterRegex.test(logEntry.message)) {
+                    emitter.emit('log', logEntry);
+                  }
+                });
+              }
+            } catch (error) {
+              emitter.emit('error', new MonitoringServiceError(
+                `Failed to stream logs for container ${id}`,
+                error as Error
+              ));
+            }
+          }, 1000); // Check for new logs every second
+        }
+
+        emitter.on('stop', () => {
+          if (logInterval) {
+            clearInterval(logInterval);
+            logInterval = null;
+          }
+        });
+
+      } catch (error) {
+        emitter.emit('error', new MonitoringServiceError(
+          `Failed to start log streaming for container ${id}`,
+          error as Error
+        ));
+      }
+    };
+
+    // Start streaming asynchronously
+    setImmediate(startLogStreaming);
+
+    return emitter;
+  }
+
+  async checkContainerHealth(id: string): Promise<HealthStatus> {
+    try {
+      const containers = await this.dockerService.listContainers();
+      const container = containers.find(c => c.id === id);
+      
+      if (!container) {
+        return {
+          status: 'unknown',
+          checks: [{
+            name: 'container-exists',
+            status: 'fail',
+            message: `Container ${id} not found`
+          }],
+          timestamp: new Date()
+        };
+      }
+
+      const checks: Array<{
+        name: string;
+        status: 'pass' | 'fail' | 'warn';
+        message?: string;
+      }> = [];
+
+      // Check container status
+      if (container.status === 'running') {
+        checks.push({
+          name: 'container-status',
+          status: 'pass',
+          message: 'Container is running'
+        });
+
+        // Additional health checks for running containers
+        try {
+          const stats = await this.dockerService.getContainerStats(id);
+          
+          // Check CPU usage
+          if (stats.cpu > 95) {
+            checks.push({
+              name: 'cpu-usage',
+              status: 'fail',
+              message: `Critical CPU usage: ${stats.cpu.toFixed(1)}%`
+            });
+          } else if (stats.cpu > 80) {
+            checks.push({
+              name: 'cpu-usage',
+              status: 'warn',
+              message: `High CPU usage: ${stats.cpu.toFixed(1)}%`
+            });
+          } else {
+            checks.push({
+              name: 'cpu-usage',
+              status: 'pass',
+              message: `CPU usage: ${stats.cpu.toFixed(1)}%`
+            });
+          }
+
+          // Check memory usage
+          if (stats.memory.percentage > 95) {
+            checks.push({
+              name: 'memory-usage',
+              status: 'fail',
+              message: `Critical memory usage: ${stats.memory.percentage.toFixed(1)}%`
+            });
+          } else if (stats.memory.percentage > 80) {
+            checks.push({
+              name: 'memory-usage',
+              status: 'warn',
+              message: `High memory usage: ${stats.memory.percentage.toFixed(1)}%`
+            });
+          } else {
+            checks.push({
+              name: 'memory-usage',
+              status: 'pass',
+              message: `Memory usage: ${stats.memory.percentage.toFixed(1)}%`
+            });
+          }
+
+          // Check container stability (recent restarts)
+          const containerAge = Date.now() - container.created.getTime();
+          if (containerAge < 60000) { // Less than 1 minute old
+            checks.push({
+              name: 'container-stability',
+              status: 'warn',
+              message: 'Container was recently created/restarted'
+            });
+          } else if (containerAge < 300000) { // Less than 5 minutes old
+            checks.push({
+              name: 'container-stability',
+              status: 'warn',
+              message: 'Container may be unstable (recently restarted)'
+            });
+          } else {
+            checks.push({
+              name: 'container-stability',
+              status: 'pass',
+              message: 'Container has been stable'
+            });
+          }
+
+          // Check for excessive disk I/O
+          const diskIORate = (stats.disk.readOps + stats.disk.writeOps) / 60; // Operations per second (assuming 1-minute window)
+          if (diskIORate > 1000) {
+            checks.push({
+              name: 'disk-io',
+              status: 'warn',
+              message: `High disk I/O: ${diskIORate.toFixed(0)} ops/sec`
+            });
+          } else {
+            checks.push({
+              name: 'disk-io',
+              status: 'pass',
+              message: `Disk I/O: ${diskIORate.toFixed(0)} ops/sec`
+            });
+          }
+
+        } catch (error) {
+          checks.push({
+            name: 'resource-monitoring',
+            status: 'warn',
+            message: 'Unable to retrieve resource metrics'
+          });
+        }
+
+        // Check for recent error logs
+        try {
+          const recentLogs = await this.dockerService.getContainerLogs(id, {
+            since: new Date(Date.now() - 300000), // Last 5 minutes
+            tail: 50,
+            timestamps: true
+          });
+
+          const errorLogs = recentLogs.filter(log => 
+            log.toLowerCase().includes('error') || 
+            log.toLowerCase().includes('exception') ||
+            log.toLowerCase().includes('fatal')
+          );
+
+          if (errorLogs.length > 10) {
+            checks.push({
+              name: 'error-logs',
+              status: 'fail',
+              message: `High error rate: ${errorLogs.length} errors in last 5 minutes`
+            });
+          } else if (errorLogs.length > 0) {
+            checks.push({
+              name: 'error-logs',
+              status: 'warn',
+              message: `${errorLogs.length} errors found in recent logs`
+            });
+          } else {
+            checks.push({
+              name: 'error-logs',
+              status: 'pass',
+              message: 'No recent errors in logs'
+            });
+          }
+        } catch (error) {
+          checks.push({
+            name: 'log-analysis',
+            status: 'warn',
+            message: 'Unable to analyze recent logs'
+          });
+        }
+
+      } else {
+        checks.push({
+          name: 'container-status',
+          status: 'fail',
+          message: `Container is ${container.status}`
+        });
+      }
+
+      // Determine overall health status
+      const hasFailures = checks.some(check => check.status === 'fail');
+      const hasWarnings = checks.some(check => check.status === 'warn');
+      
+      let overallStatus: 'healthy' | 'unhealthy' | 'unknown';
+      if (hasFailures) {
+        overallStatus = 'unhealthy';
+      } else if (hasWarnings) {
+        overallStatus = 'unhealthy'; // Treat warnings as unhealthy for safety
+      } else {
+        overallStatus = 'healthy';
+      }
+
+      return {
+        status: overallStatus,
+        checks,
+        timestamp: new Date()
+      };
+
+    } catch (error) {
+      return {
+        status: 'unknown',
+        checks: [{
+          name: 'health-check-error',
+          status: 'fail',
+          message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        timestamp: new Date()
+      };
+    }
+  }
+
   // Event emitter for real-time metrics
   onMetrics(callback: (data: any) => void): void {
     this.metricsEmitter.on('system-metrics', callback);
@@ -300,6 +959,47 @@ export class MonitoringServiceImpl implements MonitoringService {
       total: containers.length,
       running,
       stopped
+    };
+  }
+
+  private parseLogEntry(log: string, container: Container, includeTimestamp?: boolean): {
+    timestamp: Date;
+    message: string;
+    containerId: string;
+    containerName: string;
+    level?: 'info' | 'warn' | 'error' | 'debug';
+  } {
+    let timestamp = new Date();
+    let message = log;
+    let level: 'info' | 'warn' | 'error' | 'debug' | undefined;
+
+    // Parse timestamp if included
+    if (includeTimestamp) {
+      const timestampMatch = log.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(.*)$/);
+      if (timestampMatch && timestampMatch[1] && timestampMatch[2]) {
+        timestamp = new Date(timestampMatch[1]);
+        message = timestampMatch[2];
+      }
+    }
+
+    // Try to detect log level from message content
+    const lowerMessage = message.toLowerCase();
+    if (lowerMessage.includes('error') || lowerMessage.includes('err:') || lowerMessage.includes('fatal')) {
+      level = 'error';
+    } else if (lowerMessage.includes('warn') || lowerMessage.includes('warning')) {
+      level = 'warn';
+    } else if (lowerMessage.includes('debug') || lowerMessage.includes('trace')) {
+      level = 'debug';
+    } else {
+      level = 'info';
+    }
+
+    return {
+      timestamp,
+      message: message.trim(),
+      containerId: container.id,
+      containerName: container.name,
+      level
     };
   }
 }
