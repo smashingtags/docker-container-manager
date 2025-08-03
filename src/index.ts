@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { createServer } from 'http';
 import { createAPIRouter } from '@/api';
-import { errorHandler, notFoundHandler } from '@/api/middleware';
+import { errorHandler, notFoundHandler, rateLimiters } from '@/api/middleware';
 import { DockerServiceImpl } from '@/services/docker.service';
 import { DatabaseServiceImpl } from '@/services/database.service';
 import { WebSocketServiceImpl } from '@/services/websocket.service';
@@ -49,6 +49,9 @@ class Application {
   }
 
   private setupRoutes(): void {
+    // Apply general rate limiting to all API routes
+    this.app.use('/api', rateLimiters.general);
+    
     // API routes
     this.app.use('/api', createAPIRouter());
 

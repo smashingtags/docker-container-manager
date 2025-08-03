@@ -1,6 +1,9 @@
 import express, { Router } from 'express';
 import { APIResponse } from '@/types/api.types';
+import { sanitize } from './middleware/validation.middleware';
 import healthRoutes from './routes/health';
+import containerRoutes from './routes/containers';
+import appstoreRoutes from './routes/appstore';
 
 export interface APIModule {
   registerRoutes(router: Router): void;
@@ -10,8 +13,20 @@ export interface APIModule {
 export function createAPIRouter(): Router {
   const router = Router();
   
+  // Apply sanitization middleware to all API routes
+  router.use(sanitize);
+  
   // Register health routes
   router.use('/health', healthRoutes);
+  
+  // Register container management routes
+  router.use('/containers', containerRoutes);
+  
+  // Register app store routes
+  router.use('/apps', appstoreRoutes);
+  
+  // Future route modules will be registered here
+  // Example: router.use('/monitoring', monitoringRoutes);
   
   return router;
 }

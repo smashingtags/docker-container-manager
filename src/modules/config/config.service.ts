@@ -1,51 +1,397 @@
 import { ContainerConfig } from '@/types/container.types';
 import { DatabaseService } from '@/services/database.service';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 export interface ConfigService {
+  initialize(): Promise<void>;
   getContainerConfig(id: string): Promise<ContainerConfig | null>;
   saveContainerConfig(id: string, config: ContainerConfig): Promise<void>;
   deleteContainerConfig(id: string): Promise<void>;
+  getAllContainerConfigs(): Promise<ContainerConfig[]>;
   exportConfig(id: string): Promise<string>;
   importConfig(configData: string): Promise<ContainerConfig>;
   exportAllConfigs(): Promise<string>;
   importAllConfigs(configData: string): Promise<void>;
+  createBackup(): Promise<string>;
+  restoreFromBackup(backupPath: string): Promise<void>;
+}
+
+export interface ConfigBackup {
+  version: string;
+  timestamp: string;
+  configs: ContainerConfig[];
+}
+
+export class ConfigServiceError extends Error {
+  constructor(message: string, public code: string, public details?: any) {
+    super(message);
+    this.name = 'ConfigServiceError';
+  }
 }
 
 export class ConfigServiceImpl implements ConfigService {
-  constructor(private databaseService: DatabaseService) {}
+  private readonly backupDir = './data/backups';
+  private readonly configVersion = '1.0.0';
+
+  constructor(private databaseService: DatabaseService) { }
+
+  async initialize(): Promise<void> {
+    try {
+      // Create backup directory if it doesn't exist
+      await fs.mkdir(this.backupDir, { recursive: true });
+
+      // Create container_configs table if it doesn't exist
+      await this.createTables();
+    } catch (error) {
+      throw new ConfigServiceError(
+        'Failed to initialize config service',
+        'INIT_ERROR',
+        error
+      );
+    }
+  }
+
+  private async createTables(): Promise<void> {
+    // Run migrations
+    await this.runMigrations();
+  }
+
+  private async runMigrations(): Promise<void> {
+    // Create migrations table if it doesn't exist
+    await this.databaseService.run(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version TEXT UNIQUE NOT NULL,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Define migrations
+    const migrations = [
+      {
+        version: '001_initial_schema',
+        sql: `
+          CREATE TABLE IF NOT EXISTS container_configs (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            image TEXT NOT NULL,
+            tag TEXT NOT NULL,
+            config_data TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+          
+          CREATE INDEX IF NOT EXISTS idx_container_configs_name 
+          ON container_configs(name);
+        `
+      }
+    ];
+
+    // Apply migrations
+    for (const migration of migrations) {
+      const existing = await this.databaseService.get(
+        'SELECT version FROM migrations WHERE version = ?',
+        [migration.version]
+      );
+
+      if (!existing) {
+        // Split SQL by semicolon and execute each statement
+        const statements = migration.sql
+          .split(';')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        for (const statement of statements) {
+          await this.databaseService.run(statement);
+        }
+
+        // Record migration as applied
+        await this.databaseService.run(
+          'INSERT INTO migrations (version) VALUES (?)',
+          [migration.version]
+        );
+      }
+    }
+  }
 
   async getContainerConfig(id: string): Promise<ContainerConfig | null> {
-    // Implementation will be added in task 6.1
-    throw new Error('Not implemented');
+    try {
+      const row = await this.databaseService.get<{
+        id: string;
+        name: string;
+        image: string;
+        tag: string;
+        config_data: string;
+        created_at: string;
+        updated_at: string;
+      }>('SELECT * FROM container_configs WHERE id = ?', [id]);
+
+      if (!row) {
+        return null;
+      }
+
+      const config = JSON.parse(row.config_data) as ContainerConfig;
+      return config;
+    } catch (error) {
+      throw new ConfigServiceError(
+        `Failed to get container config for ID: ${id}`,
+        'GET_CONFIG_ERROR',
+        error
+      );
+    }
   }
 
   async saveContainerConfig(id: string, config: ContainerConfig): Promise<void> {
-    // Implementation will be added in task 6.1
-    throw new Error('Not implemented');
+    try {
+      const configData = JSON.stringify(config);
+      const now = new Date().toISOString();
+
+      // Check if config exists
+      const existing = await this.databaseService.get(
+        'SELECT id FROM container_configs WHERE id = ?',
+        [id]
+      );
+
+      if (existing) {
+        // Update existing config
+        await this.databaseService.run(
+          `UPDATE container_configs 
+           SET name = ?, image = ?, tag = ?, config_data = ?, updated_at = ?
+           WHERE id = ?`,
+          [config.name, config.image, config.tag, configData, now, id]
+        );
+      } else {
+        // Insert new config
+        await this.databaseService.run(
+          `INSERT INTO container_configs (id, name, image, tag, config_data, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [id, config.name, config.image, config.tag, configData, now, now]
+        );
+      }
+    } catch (error) {
+      throw new ConfigServiceError(
+        `Failed to save container config for ID: ${id}`,
+        'SAVE_CONFIG_ERROR',
+        error
+      );
+    }
   }
 
   async deleteContainerConfig(id: string): Promise<void> {
-    // Implementation will be added in task 6.1
-    throw new Error('Not implemented');
+    try {
+      const result = await this.databaseService.run(
+        'DELETE FROM container_configs WHERE id = ?',
+        [id]
+      );
+
+      if (result.changes === 0) {
+        throw new ConfigServiceError(
+          `Container config not found for ID: ${id}`,
+          'CONFIG_NOT_FOUND'
+        );
+      }
+    } catch (error) {
+      if (error instanceof ConfigServiceError) {
+        throw error;
+      }
+      throw new ConfigServiceError(
+        `Failed to delete container config for ID: ${id}`,
+        'DELETE_CONFIG_ERROR',
+        error
+      );
+    }
+  }
+
+  async getAllContainerConfigs(): Promise<ContainerConfig[]> {
+    try {
+      const rows = await this.databaseService.query<{
+        id: string;
+        name: string;
+        image: string;
+        tag: string;
+        config_data: string;
+        created_at: string;
+        updated_at: string;
+      }>('SELECT * FROM container_configs ORDER BY name');
+
+      return rows.map(row => JSON.parse(row.config_data) as ContainerConfig);
+    } catch (error) {
+      throw new ConfigServiceError(
+        'Failed to get all container configs',
+        'GET_ALL_CONFIGS_ERROR',
+        error
+      );
+    }
   }
 
   async exportConfig(id: string): Promise<string> {
-    // Implementation will be added in task 6.2
-    throw new Error('Not implemented');
+    try {
+      const config = await this.getContainerConfig(id);
+      if (!config) {
+        throw new ConfigServiceError(
+          `Container config not found for ID: ${id}`,
+          'CONFIG_NOT_FOUND'
+        );
+      }
+
+      const exportData = {
+        version: this.configVersion,
+        timestamp: new Date().toISOString(),
+        config
+      };
+
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      if (error instanceof ConfigServiceError) {
+        throw error;
+      }
+      throw new ConfigServiceError(
+        `Failed to export config for ID: ${id}`,
+        'EXPORT_CONFIG_ERROR',
+        error
+      );
+    }
   }
 
   async importConfig(configData: string): Promise<ContainerConfig> {
-    // Implementation will be added in task 6.2
-    throw new Error('Not implemented');
+    try {
+      const importData = JSON.parse(configData);
+
+      // Validate import data structure
+      if (!importData.config || !importData.version) {
+        throw new ConfigServiceError(
+          'Invalid config data format',
+          'INVALID_IMPORT_FORMAT'
+        );
+      }
+
+      const config = importData.config as ContainerConfig;
+
+      // Validate required fields
+      if (!config.id || !config.name || !config.image) {
+        throw new ConfigServiceError(
+          'Missing required config fields (id, name, image)',
+          'INVALID_CONFIG_DATA'
+        );
+      }
+
+      // Save the imported config
+      await this.saveContainerConfig(config.id, config);
+
+      return config;
+    } catch (error) {
+      if (error instanceof ConfigServiceError) {
+        throw error;
+      }
+      throw new ConfigServiceError(
+        'Failed to import config',
+        'IMPORT_CONFIG_ERROR',
+        error
+      );
+    }
   }
 
   async exportAllConfigs(): Promise<string> {
-    // Implementation will be added in task 6.2
-    throw new Error('Not implemented');
+    try {
+      const configs = await this.getAllContainerConfigs();
+
+      const exportData: ConfigBackup = {
+        version: this.configVersion,
+        timestamp: new Date().toISOString(),
+        configs
+      };
+
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      throw new ConfigServiceError(
+        'Failed to export all configs',
+        'EXPORT_ALL_CONFIGS_ERROR',
+        error
+      );
+    }
   }
 
   async importAllConfigs(configData: string): Promise<void> {
-    // Implementation will be added in task 6.2
-    throw new Error('Not implemented');
+    try {
+      const importData = JSON.parse(configData) as ConfigBackup;
+
+      // Validate import data structure
+      if (!importData.configs || !Array.isArray(importData.configs) || !importData.version) {
+        throw new ConfigServiceError(
+          'Invalid backup data format',
+          'INVALID_BACKUP_FORMAT'
+        );
+      }
+
+      // Import each config
+      for (const config of importData.configs) {
+        if (!config.id || !config.name || !config.image) {
+          throw new ConfigServiceError(
+            `Invalid config data for container: ${config.name || 'unknown'}`,
+            'INVALID_CONFIG_DATA'
+          );
+        }
+
+        await this.saveContainerConfig(config.id, config);
+      }
+    } catch (error) {
+      if (error instanceof ConfigServiceError) {
+        throw error;
+      }
+      throw new ConfigServiceError(
+        'Failed to import all configs',
+        'IMPORT_ALL_CONFIGS_ERROR',
+        error
+      );
+    }
+  }
+
+  async createBackup(): Promise<string> {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupFileName = `config-backup-${timestamp}.json`;
+      const backupPath = path.join(this.backupDir, backupFileName);
+
+      const backupData = await this.exportAllConfigs();
+      await fs.writeFile(backupPath, backupData, 'utf8');
+
+      return backupPath;
+    } catch (error) {
+      throw new ConfigServiceError(
+        'Failed to create backup',
+        'CREATE_BACKUP_ERROR',
+        error
+      );
+    }
+  }
+
+  async restoreFromBackup(backupPath: string): Promise<void> {
+    try {
+      // Check if backup file exists
+      try {
+        await fs.access(backupPath);
+      } catch {
+        throw new ConfigServiceError(
+          `Backup file not found: ${backupPath}`,
+          'BACKUP_FILE_NOT_FOUND'
+        );
+      }
+
+      // Read backup data
+      const backupData = await fs.readFile(backupPath, 'utf8');
+
+      // Import all configs from backup
+      await this.importAllConfigs(backupData);
+    } catch (error) {
+      if (error instanceof ConfigServiceError) {
+        throw error;
+      }
+      throw new ConfigServiceError(
+        `Failed to restore from backup: ${backupPath}`,
+        'RESTORE_BACKUP_ERROR',
+        error
+      );
+    }
   }
 }

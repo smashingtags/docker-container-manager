@@ -12,7 +12,12 @@
     "test:e2e": "playwright test",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "config:backup": "ts-node src/modules/config/config.cli.ts backup",
+    "config:restore": "ts-node src/modules/config/config.cli.ts restore",
+    "config:export": "ts-node src/modules/config/config.cli.ts export",
+    "config:list": "ts-node src/modules/config/config.cli.ts list",
+    "config:delete": "ts-node src/modules/config/config.cli.ts delete"
   },
   "keywords": [
     "docker",
