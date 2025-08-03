@@ -116,10 +116,15 @@ The project uses a comprehensive testing approach with Jest and Playwright:
 - **Coverage**: Comprehensive coverage reporting with text, lcov, and HTML formats
 - **Path Mapping**: `@/*` aliases for clean imports in tests
 - **Setup**: Automated test environment setup with shared utilities
+- **TypeScript Strict Mode**: All tests comply with strict null checking and type safety
 
 ### Test Types
 - **Unit Tests**: Co-located with source files, testing individual functions and classes
+<<<<<<< HEAD
 - **Integration Tests**: Testing module interactions and API endpoints with comprehensive middleware testing
+=======
+- **Integration Tests**: Testing module interactions and API endpoints with real file system operations
+>>>>>>> cd4f38d65df26a11a3979d8f1da347190033b8c5
 - **E2E Tests**: Playwright for browser automation and user workflow testing
 - **Coverage Target**: Minimum 80% code coverage for core modules
 
@@ -137,6 +142,17 @@ The API layer includes comprehensive integration tests covering:
 - **Setup Files**: Automated test environment configuration with Docker service mocking
 - **Coverage Reports**: Generated in `coverage/` directory with multiple formats
 - **Test Isolation**: Proper mock cleanup and service isolation between test runs
+
+### Recent Test Improvements
+- **Strict Null Checking**: Enhanced test assertions to handle TypeScript strict mode with proper null checking
+- **Error Validation**: Improved error message validation in tests with detailed field-specific assertions
+- **Schema Testing**: Comprehensive validation schema testing with edge cases and boundary conditions
+- **Cross-Validation Testing**: Tests for logical relationships between configuration fields
+- **Real File System Integration**: Integration tests now use actual file system operations with temporary directories for realistic volume validation testing
+- **Multi-Container Scenarios**: Advanced port conflict testing across multiple container configurations
+- **Protocol-Specific Testing**: Comprehensive testing for mixed TCP/UDP port configurations
+- **Network Driver Testing**: Custom network creation tests with different Docker network drivers (bridge, overlay)
+- **Permission Validation**: Volume mount testing with file system permissions and accessibility checks
 
 ## Configuration
 
@@ -235,6 +251,7 @@ The REST API provides the following endpoints:
 ### Monitoring (Planned)
 - `WebSocket /api/ws` - Real-time updates
 
+<<<<<<< HEAD
 ### API Features
 - **Request Validation**: Comprehensive Joi-based validation for all endpoints
 - **Error Handling**: Structured error responses with detailed messages
@@ -353,6 +370,49 @@ POST /api/apps/nginx/deploy
   }
 }
 ```
+=======
+## Container Validation System
+
+The container validation system provides comprehensive validation for all container configurations with detailed error reporting and TypeScript strict mode compliance:
+
+### Key Features
+- **Complete Configuration Validation**: Validates all aspects of container configuration including required fields, environment variables, ports, volumes, networks, restart policies, resources, health checks, and security options
+- **Joi Schema-Based Validation**: Uses Joi validation library for robust schema validation with detailed error reporting
+- **Specialized Validators**: Individual validation functions for each configuration aspect (ports, volumes, resources, health checks, security)
+- **Cross-Validation Logic**: Ensures logical consistency between related fields (e.g., health check timeout < interval, ulimit soft <= hard)
+- **Conflict Detection**: Identifies port conflicts, duplicate volume mappings, and network compatibility issues
+- **Field-Specific Errors**: Detailed error messages with field names and invalid values for precise debugging
+- **TypeScript Strict Compliance**: All validation code follows strict TypeScript rules with proper null checking
+
+### Core Validation Schemas
+- **portMappingSchema**: Port configuration with range (1-65535) and protocol validation
+- **volumeMappingSchema**: Volume mount validation with absolute path requirements
+- **resourceLimitsSchema**: CPU, memory, disk, and ulimit validation with cross-checks
+- **healthCheckSchema**: Health check configuration with timing validation
+- **securityOptionsSchema**: Security settings including privileges and capabilities
+- **containerConfigSchema**: Complete container configuration with defaults
+- **createContainerRequestSchema**: API request validation with proper defaults
+
+### Validation Functions
+- `validateSchema()` - Generic schema validation with error formatting
+- `validateContainerConfig()` - Complete container configuration validation with detailed error reporting
+- `validatePortMappings()` - Port configuration with conflict detection and reserved port warnings
+- `validateVolumeMappings()` - Volume mount validation with path safety checks
+- `validateNetworkConfiguration()` - Network name validation with Docker compatibility
+- `validateResourceLimits()` - Resource limits with ulimit cross-validation
+- `validatePortConfiguration()` - Port validation with existing port conflict detection
+- `validateVolumeConfiguration()` - Volume validation with optional host path checking
+- `validateNetworkCompatibility()` - Network validation against available Docker networks
+
+### Testing Coverage
+The validation system includes comprehensive unit tests with:
+- **Schema Validation Tests**: All Joi schemas tested with valid and invalid data
+- **Error Message Validation**: Ensures proper error formatting and field identification
+- **Edge Case Testing**: Handles malformed data, missing fields, and boundary conditions
+- **TypeScript Strict Mode**: All tests comply with strict null checking and type safety
+- **Cross-Validation Testing**: Validates logical relationships between configuration fields
+- **Mock Isolation**: Validation utilities are properly mocked in tests for better isolation and faster execution
+>>>>>>> cd4f38d65df26a11a3979d8f1da347190033b8c5
 
 ## Docker Service Implementation
 
@@ -366,12 +426,255 @@ The Docker service layer provides a robust wrapper around the dockerode library 
 - **Container Listing**: Retrieve all containers with status mapping, port configurations, and volume mounts
 - **Service Interface**: Implements standardized service interface for lifecycle management
 
+## Networking Service Implementation
+
+The NetworkingService provides comprehensive validation and management for container networking and storage configurations:
+
+### Key Features
+- **Port Mapping Validation**: Conflict detection with existing containers and reserved ports
+- **Volume Mount Validation**: Host path existence and accessibility checks
+- **Network Configuration**: Compatibility validation with available Docker networks
+- **Port Suggestions**: Intelligent port allocation to avoid conflicts
+- **Custom Networks**: Automatic creation of custom Docker networks when needed
+- **Error Handling**: Detailed validation errors with field-specific messages
+- **Logging**: Comprehensive debug and error logging throughout operations
+
+### NetworkingService API
+
+```typescript
+interface NetworkingService {
+  validatePortMappings(ports: PortMapping[]): Promise<ValidationResult<PortMapping[]>>;
+  validateVolumeMappings(volumes: VolumeMapping[]): Promise<ValidationResult<VolumeMapping[]>>;
+  validateNetworkConfiguration(networks: string[]): Promise<ValidationResult<string[]>>;
+  getAvailableNetworks(): Promise<string[]>;
+  getUsedPorts(): Promise<number[]>;
+  suggestAvailablePort(preferredPort?: number): Promise<number>;
+  validateHostPath(path: string): Promise<ValidationResult<string>>;
+  createNetworkIfNotExists(name: string, options?: any): Promise<void>;
+}
+```
+
+### Validation Features
+- **Port Conflict Detection**: Checks against currently used ports and reserved system ports
+- **Host Path Validation**: Verifies path existence and accessibility before container creation
+- **Network Compatibility**: Ensures specified networks exist or can be created
+- **Data Integrity**: Robust validation with proper error handling for malformed configurations
+- **Safe Data Processing**: Enhanced validation logic ensures only valid data is processed during host path validation
+
+### Recent Improvements
+- **Volume Validation Bug Fix**: Fixed issue where volume validation could fail when processing invalid data structures. The validation now properly checks for valid data before attempting host path validation, preventing runtime errors and ensuring reliable container configuration validation.
+- **Enhanced Test Isolation**: Improved test architecture by properly mocking validation utilities, ensuring better test isolation and more reliable test execution. This prevents external dependencies from affecting test results and improves overall test performance.
+- **Advanced Integration Testing**: Comprehensive integration tests now include real file system operations for volume validation, multi-container port conflict scenarios, mixed protocol configurations (TCP/UDP), reserved port handling, complex volume mapping with nested directories, and custom network creation with different drivers.
+
+## App Store Service Implementation
+
+The AppStoreService provides a complete app store experience for discovering and deploying containerized applications:
+
+### Key Features
+- **App Discovery**: Browse apps by category or search across all available applications
+- **Template Integration**: Seamless integration with the template service for app metadata
+- **Container Deployment**: Complete deployment workflow from app selection to running container
+- **Configuration Mapping**: Intelligent mapping of app templates to container configurations
+- **Dependency Injection**: Constructor-based dependency injection for container service integration
+- **Error Handling**: Custom error types with detailed error messages and original error preservation
+- **Logging**: Comprehensive logging throughout the deployment process for debugging and monitoring
+
+### AppStoreService API
+
+```typescript
+interface AppStoreService {
+  getApps(category?: string): Promise<App[]>;
+  searchApps(query: string): Promise<App[]>;
+  getAppDetails(id: string): Promise<AppDetails>;
+  getCategories(): Promise<AppCategory[]>;
+  deployApp(appId: string, config: DeployConfig): Promise<Container>;
+  getAppTemplate(id: string): Promise<AppTemplate>;
+}
+```
+
+### Deployment Process
+
+The `deployApp` method implements a complete deployment workflow:
+
+1. **Template Loading**: Load the app template using the template service
+2. **Configuration Mapping**: Map template defaults and user configuration to container config
+3. **Container Creation**: Create the container using the container service
+4. **Container Startup**: Automatically start the newly created container
+5. **Labeling**: Add app store specific labels for tracking and management
+6. **Error Handling**: Comprehensive error handling with detailed logging
+
+### Configuration Mapping Features
+
+- **Environment Variables**: Merge template defaults with user-provided environment variables
+- **Port Mappings**: Use user configuration with fallback to template defaults, including port descriptions
+- **Volume Mounts**: Support user-defined volumes with fallback to template defaults, including volume descriptions
+- **Network Configuration**: Flexible network configuration with template defaults
+- **Resource Limits**: Merge resource limits from template and user configuration
+- **Metadata Preservation**: Preserve template metadata in container labels for tracking
+- **Smart Defaults**: Intelligent default values for restart policy, resource limits, and other configuration
+
+### Error Handling
+
+The service uses custom error types for better error handling:
+
+```typescript
+export class AppStoreServiceError extends Error {
+  constructor(message: string, public originalError?: Error) {
+    super(message);
+    this.name = 'AppStoreServiceError';
+  }
+}
+```
+
+### Testing Coverage
+
+The AppStoreService includes comprehensive unit tests covering:
+- **App Discovery**: Browse and search functionality with category filtering
+- **Template Integration**: Template loading and validation
+- **Deployment Workflow**: Complete deployment process with configuration mapping
+- **Error Scenarios**: Error handling for invalid templates, deployment failures, and service errors
+- **Configuration Mapping**: Template-to-container configuration conversion with all supported options
+- **Dependency Injection**: Constructor-based service dependencies and mocking
+
+## App Store System
+
+The app store system provides a complete solution for discovering, configuring, and deploying containerized applications with an intuitive app store experience:
+
+### Key Features
+- **App Discovery**: Browse and search available applications with category filtering
+- **Template Management**: Efficient loading and caching of JSON-based app templates
+- **App Deployment**: Complete deployment workflow from template to running container
+- **Configuration Mapping**: Intelligent mapping of app templates to container configurations
+- **Category Management**: Automatic categorization with app counts and fallback generation
+- **Search Functionality**: Multi-field search across names, descriptions, tags, and authors
+- **Validation**: Comprehensive Joi-based template validation with detailed error reporting
+- **Caching**: In-memory caching for improved performance with cache management methods
+- **File System Integration**: Robust file parsing with JSON validation and error handling
+- **Logging**: Comprehensive logging for deployment tracking and debugging
+
+### App Store Service API
+
+```typescript
+interface AppStoreService {
+  getApps(category?: string): Promise<App[]>;
+  searchApps(query: string): Promise<App[]>;
+  getAppDetails(id: string): Promise<AppDetails>;
+  getCategories(): Promise<AppCategory[]>;
+  deployApp(appId: string, config: DeployConfig): Promise<Container>;
+  getAppTemplate(id: string): Promise<AppTemplate>;
+}
+```
+
+### Template Service API
+
+```typescript
+interface TemplateService {
+  loadTemplate(templateId: string): Promise<AppTemplate>;
+  loadAllTemplates(): Promise<AppTemplate[]>;
+  getTemplatesByCategory(category: string): Promise<AppTemplate[]>;
+  searchTemplates(query: string): Promise<AppTemplate[]>;
+  getCategories(): Promise<AppCategory[]>;
+  validateTemplate(template: any): ValidationResult<AppTemplate>;
+  parseTemplateFile(filePath: string): Promise<AppTemplate>;
+}
+```
+
+### App Deployment Workflow
+
+The app store service provides a complete deployment workflow:
+
+1. **Template Loading**: Load app template with default configuration
+2. **Configuration Mapping**: Map template and user config to container configuration
+3. **Container Creation**: Create container using the container service
+4. **Container Startup**: Automatically start the deployed container
+5. **Logging**: Track deployment progress and results
+6. **Error Handling**: Comprehensive error handling with detailed error messages
+
+### Template Structure
+App templates are JSON files with the following structure:
+- **Metadata**: ID, name, description, category, icon, version, tags, author
+- **Container Configuration**: Default Docker configuration with ports, volumes, environment variables
+- **Configuration Schema**: JSON schema for user customization options
+- **Documentation**: Detailed usage instructions and setup guides
+
+### Template Validation
+The template validation system ensures:
+- **Schema Compliance**: All required fields present with correct data types
+- **ID Format**: Lowercase alphanumeric with hyphens only
+- **Version Format**: Semantic versioning (x.y.z)
+- **URI Validation**: Valid URLs for icons, homepage, and repository
+- **Container Config**: Complete validation of default Docker configuration
+- **JSON Schema**: Valid configuration schema for user customization
+
+### Category Management
+- **Automatic Discovery**: Categories generated from existing templates
+- **App Counting**: Real-time count of applications per category
+- **Icon Mapping**: Default category icons with emoji fallbacks
+- **Name Formatting**: Automatic category name formatting from IDs
+
+### Template Directory Structure
+```
+templates/
+├── apps/                         # Individual app templates
+│   ├── portainer.json           # Example: Portainer management UI
+│   ├── nginx.json               # Example: Nginx web server
+│   └── ...                      # Additional app templates
+└── categories/                   # Category definitions (optional)
+    └── categories.json          # Manual category configuration
+```
+
+### Template File Format
+Each template is a JSON file with comprehensive configuration:
+```json
+{
+  "id": "portainer",
+  "name": "Portainer",
+  "description": "Docker management UI",
+  "category": "management",
+  "icon": "https://portainer.io/images/logo.png",
+  "version": "2.19.4",
+  "image": "portainer/portainer-ce",
+  "defaultConfig": {
+    "ports": [
+      {
+        "hostPort": 9000,
+        "containerPort": 9000,
+        "protocol": "tcp",
+        "description": "Web UI"
+      }
+    ],
+    "volumes": [
+      {
+        "hostPath": "/var/run/docker.sock",
+        "containerPath": "/var/run/docker.sock",
+        "mode": "rw",
+        "description": "Docker socket"
+      }
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "webPort": {
+        "type": "number",
+        "default": 9000,
+        "description": "Web interface port"
+      }
+    }
+  },
+  "documentation": "Portainer is a lightweight management UI...",
+  "tags": ["management", "docker", "ui"],
+  "author": "Portainer Team"
+}
+```
+
 ### Docker Service API
 
 ```typescript
 interface DockerService {
   // Container Operations
   listContainers(): Promise<Container[]>;           // ✅ Implemented
+  getContainerStats(id: string): Promise<ContainerStats>;  // ✅ Implemented
   createContainer(config: ContainerConfig): Promise<Container>;  // To be implemented
   startContainer(id: string): Promise<void>;        // To be implemented
   stopContainer(id: string): Promise<void>;         // To be implemented
@@ -412,7 +715,119 @@ The Docker service includes comprehensive unit tests covering:
 - **Error Scenarios**: Connection failures, operation timeouts, and retry logic
 - **Edge Cases**: Missing image tags, network failures, and malformed responses
 
+## Monitoring Service Implementation
+
+The MonitoringService provides comprehensive container monitoring, logging, and health checking capabilities:
+
+### Key Features
+- **Real-time Metrics**: Live container statistics collection with caching for performance
+- **Log Management**: Advanced log streaming, export, and historical log access
+- **Health Monitoring**: Comprehensive container health checks with resource monitoring
+- **System Metrics**: System-wide resource monitoring (CPU, memory, disk, containers)
+- **Event-driven Updates**: Real-time metrics streaming using EventEmitter pattern
+- **Advanced Log Streaming**: Filtered log streaming with regex pattern support
+- **Log Export**: Multiple export formats (JSON, text) with customizable options
+- **Error Handling**: Robust error handling with custom error types and error preservation
+
+### MonitoringService API
+
+```typescript
+interface MonitoringService {
+  getContainerMetrics(id: string): Promise<ContainerStats>;
+  getSystemMetrics(): Promise<SystemMetrics>;
+  streamLogs(id: string, options?: LogOptions): EventEmitter;
+  checkHealth(id: string): Promise<HealthStatus>;
+  startMetricsCollection(): void;
+  stopMetricsCollection(): void;
+  streamContainerStats(id: string): EventEmitter;
+  getAllContainerMetrics(): Promise<Map<string, ContainerStats>>;
+  exportLogs(id: string, options?: ExportOptions): Promise<string>;
+  getHistoricalLogs(id: string, options?: HistoricalLogOptions): Promise<LogEntry[]>;
+  downloadLogs(id: string, format?: 'json' | 'text', options?: ExportOptions): Promise<DownloadResult>;
+  streamLogsAdvanced(id: string, options?: AdvancedLogOptions): Promise<EventEmitter>;
+  checkContainerHealth(id: string): Promise<HealthStatus>;
+}
+```
+
+### Container Metrics Collection
+
+The monitoring service includes comprehensive container metrics collection:
+
+#### Features
+- **Real-time Metrics**: Retrieves live container statistics from Docker daemon
+- **CPU Metrics**: Calculates CPU percentage with proper delta computation and multi-core support
+- **Memory Statistics**: Tracks memory usage, limits, and percentage utilization
+- **Network Statistics**: Aggregates network I/O across all container interfaces (rx/tx bytes and packets)
+- **Disk I/O Metrics**: Monitors disk read/write operations and bytes from blkio statistics
+- **Timestamp Tracking**: Includes collection timestamp for metrics correlation
+- **Error Handling**: Robust error handling with DockerOperationError for failed operations
+- **Data Safety**: Null-safe parsing with fallback values for missing statistics
+- **Caching**: Intelligent caching with TTL for improved performance
+
+#### ContainerStats Interface
+```typescript
+interface ContainerStats {
+  cpu: number;                    // CPU percentage (0-100 * number of cores)
+  memory: {
+    usage: number;                // Memory usage in bytes
+    limit: number;                // Memory limit in bytes
+    percentage: number;           // Memory usage percentage
+  };
+  network: {
+    rxBytes: number;              // Received bytes across all interfaces
+    txBytes: number;              // Transmitted bytes across all interfaces
+    rxPackets: number;            // Received packets across all interfaces
+    txPackets: number;            // Transmitted packets across all interfaces
+  };
+  disk: {
+    readBytes: number;            // Disk read bytes
+    writeBytes: number;           // Disk write bytes
+    readOps: number;              // Disk read operations
+    writeOps: number;             // Disk write operations
+  };
+  timestamp: Date;                // Collection timestamp
+}
+```
+
+#### Usage Example
+```typescript
+const dockerService = new DockerServiceImpl();
+const stats = await dockerService.getContainerStats('container-id');
+
+console.log(`CPU: ${stats.cpu.toFixed(2)}%`);
+console.log(`Memory: ${(stats.memory.usage / 1024 / 1024).toFixed(2)} MB (${stats.memory.percentage.toFixed(2)}%)`);
+console.log(`Network RX: ${(stats.network.rxBytes / 1024 / 1024).toFixed(2)} MB`);
+console.log(`Disk Read: ${(stats.disk.readBytes / 1024 / 1024).toFixed(2)} MB`);
+```
+
+### Log Management Features
+
+The monitoring service provides advanced log management capabilities:
+
+#### Log Streaming
+- **Real-time Streaming**: Live log streaming with WebSocket-like EventEmitter pattern
+- **Historical Access**: Retrieve historical logs with flexible time range filtering
+- **Advanced Filtering**: Regex-based log filtering for targeted log analysis
+- **Multiple Formats**: Support for timestamped and raw log formats
+- **Follow Mode**: Continuous log streaming for real-time monitoring
+
+#### Log Export and Download
+- **Multiple Formats**: Export logs in JSON or plain text format
+- **Flexible Options**: Customizable time ranges, timestamps, and filtering
+- **Structured Export**: JSON export includes container metadata and export options
+- **Download Ready**: Formatted downloads with proper MIME types and filenames
+- **Error Preservation**: Enhanced error handling that preserves specific error messages
+
+#### Health Monitoring
+- **Comprehensive Checks**: Multi-faceted health assessment including resource usage, stability, and error analysis
+- **Resource Thresholds**: Configurable CPU and memory usage thresholds with warning and critical levels
+- **Log Analysis**: Automatic error detection in recent container logs
+- **Stability Assessment**: Container restart and age analysis for stability evaluation
+- **Detailed Reporting**: Structured health reports with individual check results and overall status
+
 ### Error Handling
+- **MonitoringServiceError**: Custom error type for monitoring-specific failures
+- **Error Preservation**: Enhanced error handling that preserves original error context and specific error messages
 - **DockerConnectionError**: Thrown when Docker daemon connection fails
 - **DockerOperationError**: Thrown when Docker operations fail
 - **Retry Logic**: Automatic retry with configurable attempts and timeout
@@ -515,6 +930,7 @@ This project is currently in development. The following foundation tasks are com
 ### Current Implementation Status
 - **Foundation**: Complete project scaffolding and configuration
 - **Types & Interfaces**: Core data models and service contracts defined
+<<<<<<< HEAD
 - **Testing Infrastructure**: Jest configuration with mocks and utilities
 - **Module Structure**: Organized modules for containers, app store, monitoring, auth, and config
 - **Docker Service**: Complete Docker API integration with connection management, error handling, health checks, and container listing
@@ -525,6 +941,19 @@ This project is currently in development. The following foundation tasks are com
 - **App Store API**: Complete REST API endpoints for app browsing, searching, deployment, and template management
 - **Service Layer**: Mock service implementation ready for integration with actual Docker operations
 - **Next Steps**: Container service implementation (create, start, stop, remove operations) and app store service implementation
+=======
+- **Testing Infrastructure**: Jest configuration with mocks and utilities, TypeScript strict mode compliance
+- **Module Skeleton**: Basic structure for all core modules
+- **Container Validation**: Comprehensive Joi-based validation system with field-specific error reporting, cross-validation logic, conflict detection, and TypeScript strict mode compliance
+- **Docker Service**: Complete Docker API integration with connection management, error handling, health checks, and container listing
+- **Container Operations**: Container listing and metrics collection implemented with status mapping, port/volume extraction, and comprehensive statistics parsing
+- **Networking Service**: Complete networking and storage validation with port conflict detection, host path validation, and network management
+- **Container Service**: Full container lifecycle management with integrated networking validation and comprehensive configuration validation
+- **App Template System**: Complete template service implementation with validation, caching, and category management
+- **App Store Service**: Complete app store service with app discovery, deployment workflow, and container integration
+- **Integration Testing**: Advanced integration tests with real file system operations, multi-container scenarios, and comprehensive validation coverage
+- **Next Steps**: Monitoring system and REST API endpoints
+>>>>>>> cd4f38d65df26a11a3979d8f1da347190033b8c5
 
 See the [tasks.md](.kiro/specs/docker-container-manager/tasks.md) file for detailed implementation progress.
 

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "web-servers",
+    "name": "Web Servers",
+    "description": "HTTP servers, reverse proxies, and web application platforms",
+    "icon": "🌐",
+    "appCount": 0
+  },
+  {
+    "id": "databases",
+    "name": "Databases",
+    "description": "SQL and NoSQL database systems",
+    "icon": "🗄️",
+    "appCount": 0
+  },
+  {
+    "id": "media",
+    "name": "Media",
+    "description": "Media servers, streaming, and entertainment applications",
+    "icon": "🎬",
+    "appCount": 0
+  },
+  {
+    "id": "development",
+    "name": "Development",
+    "description": "Development tools, IDEs, and programming environments",
+    "icon": "💻",
+    "appCount": 0
+  },
+  {
+    "id": "networking",
+    "name": "Networking",
+    "description": "Network tools, VPNs, and connectivity solutions",
+    "icon": "🔗",
+    "appCount": 0
+  },
+  {
+    "id": "security",
+    "name": "Security",
+    "description": "Security tools, authentication, and monitoring",
+    "icon": "🔒",
+    "appCount": 0
+  },
+  {
+    "id": "monitoring",
+    "name": "Monitoring",
+    "description": "System monitoring, logging, and analytics tools",
+    "icon": "📊",
+    "appCount": 0
+  },
+  {
+    "id": "productivity",
+    "name": "Productivity",
+    "description": "Office tools, collaboration, and productivity applications",
+    "icon": "📋",
+    "appCount": 0
+  },
+  {
+    "id": "utilities",
+    "name": "Utilities",
+    "description": "System utilities and general-purpose tools",
+    "icon": "🔧",
+    "appCount": 0
+  }
+]

@@ -1,11 +1,11 @@
 import { ContainerServiceImpl, ContainerServiceError } from './container.service';
 import { DockerService } from '@/services/docker.service';
 import { Container, ContainerConfig, LogOptions } from '@/types/container.types';
-import { validateCompleteContainerConfig } from './container.validation';
+import { validateContainerConfig } from './container.validation';
 
 // Mock the validation module
 jest.mock('./container.validation');
-const mockValidateContainerConfig = validateCompleteContainerConfig as jest.MockedFunction<typeof validateCompleteContainerConfig>;
+const mockValidateContainerConfig = validateContainerConfig as jest.MockedFunction<typeof validateContainerConfig>;
 
 // Mock the logger
 jest.mock('@/utils/logger', () => ({

@@ -321,8 +321,8 @@ export function validateNetworkConfiguration(networks: string[]): ValidationResu
       });
     }
 
-    // Check for reserved network names
-    const reservedNetworks = ['none', 'host', 'container'];
+    // Check for reserved network names (but allow Docker built-in networks)
+    const reservedNetworks = ['container']; // Remove 'none' and 'host' as they are valid Docker networks
     if (reservedNetworks.includes(network)) {
       errors.push({
         field: `networks[${index}]`,
