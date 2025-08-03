@@ -790,13 +790,14 @@ The monitoring service provides advanced log management capabilities:
 The ConfigService provides comprehensive container configuration persistence with backup and restore capabilities:
 
 ### Key Features
-- **SQLite Storage**: Persistent configuration storage with automatic table creation
+- **SQLite Storage**: Persistent configuration storage with automatic migration system
 - **CRUD Operations**: Complete create, read, update, delete operations for container configurations
-- **Import/Export**: JSON-based configuration export and import with validation
-- **Backup System**: Automated backup creation with timestamped files in `data/backups/`
-- **Bulk Operations**: Export and import all configurations at once
-- **Error Handling**: Comprehensive error handling with custom ConfigServiceError types
-- **Data Validation**: Strict validation of configuration data during import operations
+- **Import/Export**: JSON-based configuration export and import with comprehensive validation
+- **Dual Backup System**: Database-backed backups with file redundancy in `data/backups/`
+- **Bulk Operations**: Export and import all configurations with atomic operations
+- **Error Handling**: Custom ConfigServiceError with specific error codes and detailed messages
+- **Data Validation**: Container configuration validation using validation utilities
+- **Migration Support**: Automatic database schema management through MigrationService
 
 ### Configuration Service API
 
@@ -817,33 +818,58 @@ interface ConfigService {
   exportAllConfigs(): Promise<string>;                           // ✅ Implemented
   importAllConfigs(configData: string): Promise<void>;           // ✅ Implemented
   
-  // Backup and Restore
-  createBackup(): Promise<string>;                               // ✅ Implemented
-  restoreFromBackup(backupPath: string): Promise<void>;          // ✅ Implemented
+  // Backup and Restore Management
+  createBackup(name: string, description?: string): Promise<number>; // ✅ Implemented
+  restoreBackup(backupId: number): Promise<void>;                // ✅ Implemented
+  listBackups(): Promise<ConfigBackup[]>;                        // ✅ Implemented
+  deleteBackup(backupId: number): Promise<void>;                 // ✅ Implemented
 }
 ```
 
 ### Database Schema
-The service automatically creates the following SQLite table structure:
+The service uses comprehensive database schema with full container configuration support:
 ```sql
 CREATE TABLE container_configs (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   image TEXT NOT NULL,
   tag TEXT NOT NULL,
-  config_data TEXT NOT NULL,
+  environment TEXT NOT NULL,
+  ports TEXT NOT NULL,
+  volumes TEXT NOT NULL,
+  networks TEXT NOT NULL,
+  restart_policy TEXT NOT NULL,
+  resources TEXT NOT NULL,
+  health_check TEXT,
+  security TEXT,
+  labels TEXT,
+  working_dir TEXT,
+  entrypoint TEXT,
+  command TEXT,
+  hostname TEXT,
+  domainname TEXT,
+  auto_remove INTEGER NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE config_backups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  backup_data TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-### Backup Format
-Configuration backups use a structured JSON format:
+### Backup Management
+Enhanced backup system with database storage and file redundancy:
 ```typescript
 interface ConfigBackup {
-  version: string;      // Configuration format version
-  timestamp: string;    // ISO timestamp of backup creation
-  configs: ContainerConfig[]; // Array of all container configurations
+  id: number;           // Unique backup identifier
+  name: string;         // User-defined backup name
+  description?: string; // Optional backup description
+  createdAt: Date;      // Backup creation timestamp
 }
 ```
 
