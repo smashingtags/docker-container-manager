@@ -1,1 +1,4 @@
-Put your selfhosted or other mcp servers here, see github official and the ones built into docker desktop, or grab some from my other repos
+{
+  "mcpServers": {
+  }
+}
