@@ -303,7 +303,7 @@ Error responses include detailed validation information:
 
 ### App Store API Implementation
 
-The app store API is fully implemented with comprehensive functionality for browsing, searching, and deploying containerized applications:
+The app store API provides basic functionality for browsing, searching, and deploying containerized applications with mock data for development:
 
 #### Endpoint Details
 - **GET /api/apps**: Browse apps with optional category filtering, tag filtering, pagination, and sorting
@@ -420,16 +420,14 @@ interface NetworkingService {
 
 ## App Store Service Implementation
 
-The AppStoreService provides a complete app store experience for discovering and deploying containerized applications:
+The AppStoreService provides a basic app store interface with mock data for development and testing:
 
 ### Key Features
-- **App Discovery**: Browse apps by category or search across all available applications
-- **Template Integration**: Seamless integration with the template service for app metadata
-- **Container Deployment**: Complete deployment workflow from app selection to running container
-- **Configuration Mapping**: Intelligent mapping of app templates to container configurations
-- **Dependency Injection**: Constructor-based dependency injection for container service integration
-- **Error Handling**: Custom error types with detailed error messages and original error preservation
-- **Logging**: Comprehensive logging throughout the deployment process for debugging and monitoring
+- **Mock Data**: Predefined app catalog for development and testing
+- **App Discovery**: Browse apps by category or search across available applications
+- **Basic Deployment**: Simple container deployment workflow with mock data
+- **Error Handling**: Custom error types for app store operations
+- **Category Management**: Predefined categories with app counts
 
 ### AppStoreService API
 
@@ -446,24 +444,19 @@ interface AppStoreService {
 
 ### Deployment Process
 
-The `deployApp` method implements a complete deployment workflow:
+The `deployApp` method implements a basic deployment workflow:
 
-1. **Template Loading**: Load the app template using the template service
-2. **Configuration Mapping**: Map template defaults and user configuration to container config
-3. **Container Creation**: Create the container using the container service
-4. **Container Startup**: Automatically start the newly created container
-5. **Labeling**: Add app store specific labels for tracking and management
-6. **Error Handling**: Comprehensive error handling with detailed logging
+1. **App Validation**: Verify the app exists in the mock catalog
+2. **Mock Container Creation**: Create a mock container response with provided configuration
+3. **Error Handling**: Basic error handling for app not found scenarios
 
-### Configuration Mapping Features
+### Mock Data Structure
 
-- **Environment Variables**: Merge template defaults with user-provided environment variables
-- **Port Mappings**: Use user configuration with fallback to template defaults, including port descriptions
-- **Volume Mounts**: Support user-defined volumes with fallback to template defaults, including volume descriptions
-- **Network Configuration**: Flexible network configuration with template defaults
-- **Resource Limits**: Merge resource limits from template and user configuration
-- **Metadata Preservation**: Preserve template metadata in container labels for tracking
-- **Smart Defaults**: Intelligent default values for restart policy, resource limits, and other configuration
+The service includes predefined mock data for development:
+
+- **Mock Apps**: Sample applications (Nginx, MySQL) with basic metadata
+- **Mock Categories**: Predefined categories (Web Servers, Databases) with app counts
+- **Mock Deployment**: Simple container creation simulation
 
 ### Error Handling
 
@@ -477,16 +470,6 @@ export class AppStoreServiceError extends Error {
   }
 }
 ```
-
-### Testing Coverage
-
-The AppStoreService includes comprehensive unit tests covering:
-- **App Discovery**: Browse and search functionality with category filtering
-- **Template Integration**: Template loading and validation
-- **Deployment Workflow**: Complete deployment process with configuration mapping
-- **Error Scenarios**: Error handling for invalid templates, deployment failures, and service errors
-- **Configuration Mapping**: Template-to-container configuration conversion with all supported options
-- **Dependency Injection**: Constructor-based service dependencies and mocking
 
 ## App Store System
 
