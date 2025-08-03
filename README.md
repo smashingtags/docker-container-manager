@@ -120,11 +120,7 @@ The project uses a comprehensive testing approach with Jest and Playwright:
 
 ### Test Types
 - **Unit Tests**: Co-located with source files, testing individual functions and classes
-<<<<<<< HEAD
 - **Integration Tests**: Testing module interactions and API endpoints with comprehensive middleware testing
-=======
-- **Integration Tests**: Testing module interactions and API endpoints with real file system operations
->>>>>>> cd4f38d65df26a11a3979d8f1da347190033b8c5
 - **E2E Tests**: Playwright for browser automation and user workflow testing
 - **Coverage Target**: Minimum 80% code coverage for core modules
 
@@ -251,7 +247,6 @@ The REST API provides the following endpoints:
 ### Monitoring (Planned)
 - `WebSocket /api/ws` - Real-time updates
 
-<<<<<<< HEAD
 ### API Features
 - **Request Validation**: Comprehensive Joi-based validation for all endpoints
 - **Error Handling**: Structured error responses with detailed messages
@@ -370,49 +365,6 @@ POST /api/apps/nginx/deploy
   }
 }
 ```
-=======
-## Container Validation System
-
-The container validation system provides comprehensive validation for all container configurations with detailed error reporting and TypeScript strict mode compliance:
-
-### Key Features
-- **Complete Configuration Validation**: Validates all aspects of container configuration including required fields, environment variables, ports, volumes, networks, restart policies, resources, health checks, and security options
-- **Joi Schema-Based Validation**: Uses Joi validation library for robust schema validation with detailed error reporting
-- **Specialized Validators**: Individual validation functions for each configuration aspect (ports, volumes, resources, health checks, security)
-- **Cross-Validation Logic**: Ensures logical consistency between related fields (e.g., health check timeout < interval, ulimit soft <= hard)
-- **Conflict Detection**: Identifies port conflicts, duplicate volume mappings, and network compatibility issues
-- **Field-Specific Errors**: Detailed error messages with field names and invalid values for precise debugging
-- **TypeScript Strict Compliance**: All validation code follows strict TypeScript rules with proper null checking
-
-### Core Validation Schemas
-- **portMappingSchema**: Port configuration with range (1-65535) and protocol validation
-- **volumeMappingSchema**: Volume mount validation with absolute path requirements
-- **resourceLimitsSchema**: CPU, memory, disk, and ulimit validation with cross-checks
-- **healthCheckSchema**: Health check configuration with timing validation
-- **securityOptionsSchema**: Security settings including privileges and capabilities
-- **containerConfigSchema**: Complete container configuration with defaults
-- **createContainerRequestSchema**: API request validation with proper defaults
-
-### Validation Functions
-- `validateSchema()` - Generic schema validation with error formatting
-- `validateContainerConfig()` - Complete container configuration validation with detailed error reporting
-- `validatePortMappings()` - Port configuration with conflict detection and reserved port warnings
-- `validateVolumeMappings()` - Volume mount validation with path safety checks
-- `validateNetworkConfiguration()` - Network name validation with Docker compatibility
-- `validateResourceLimits()` - Resource limits with ulimit cross-validation
-- `validatePortConfiguration()` - Port validation with existing port conflict detection
-- `validateVolumeConfiguration()` - Volume validation with optional host path checking
-- `validateNetworkCompatibility()` - Network validation against available Docker networks
-
-### Testing Coverage
-The validation system includes comprehensive unit tests with:
-- **Schema Validation Tests**: All Joi schemas tested with valid and invalid data
-- **Error Message Validation**: Ensures proper error formatting and field identification
-- **Edge Case Testing**: Handles malformed data, missing fields, and boundary conditions
-- **TypeScript Strict Mode**: All tests comply with strict null checking and type safety
-- **Cross-Validation Testing**: Validates logical relationships between configuration fields
-- **Mock Isolation**: Validation utilities are properly mocked in tests for better isolation and faster execution
->>>>>>> cd4f38d65df26a11a3979d8f1da347190033b8c5
 
 ## Docker Service Implementation
 
@@ -930,7 +882,6 @@ This project is currently in development. The following foundation tasks are com
 ### Current Implementation Status
 - **Foundation**: Complete project scaffolding and configuration
 - **Types & Interfaces**: Core data models and service contracts defined
-<<<<<<< HEAD
 - **Testing Infrastructure**: Jest configuration with mocks and utilities
 - **Module Structure**: Organized modules for containers, app store, monitoring, auth, and config
 - **Docker Service**: Complete Docker API integration with connection management, error handling, health checks, and container listing
@@ -941,19 +892,6 @@ This project is currently in development. The following foundation tasks are com
 - **App Store API**: Complete REST API endpoints for app browsing, searching, deployment, and template management
 - **Service Layer**: Mock service implementation ready for integration with actual Docker operations
 - **Next Steps**: Container service implementation (create, start, stop, remove operations) and app store service implementation
-=======
-- **Testing Infrastructure**: Jest configuration with mocks and utilities, TypeScript strict mode compliance
-- **Module Skeleton**: Basic structure for all core modules
-- **Container Validation**: Comprehensive Joi-based validation system with field-specific error reporting, cross-validation logic, conflict detection, and TypeScript strict mode compliance
-- **Docker Service**: Complete Docker API integration with connection management, error handling, health checks, and container listing
-- **Container Operations**: Container listing and metrics collection implemented with status mapping, port/volume extraction, and comprehensive statistics parsing
-- **Networking Service**: Complete networking and storage validation with port conflict detection, host path validation, and network management
-- **Container Service**: Full container lifecycle management with integrated networking validation and comprehensive configuration validation
-- **App Template System**: Complete template service implementation with validation, caching, and category management
-- **App Store Service**: Complete app store service with app discovery, deployment workflow, and container integration
-- **Integration Testing**: Advanced integration tests with real file system operations, multi-container scenarios, and comprehensive validation coverage
-- **Next Steps**: Monitoring system and REST API endpoints
->>>>>>> cd4f38d65df26a11a3979d8f1da347190033b8c5
 
 See the [tasks.md](.kiro/specs/docker-container-manager/tasks.md) file for detailed implementation progress.
 
