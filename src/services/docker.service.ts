@@ -1,8 +1,12 @@
 import Docker from 'dockerode';
+import { EventEmitter } from 'events';
 import { Container, ContainerConfig, ContainerStats, LogOptions, PortMapping, VolumeMapping } from '@/types/container.types';
 import { ServiceInterface } from '@/types';
 
 export interface DockerService extends ServiceInterface {
+  // Event emitter methods
+  on(event: string, listener: (...args: any[]) => void): void;
+  emit(event: string, ...args: any[]): void;
   listContainers(): Promise<Container[]>;
   createContainer(config: ContainerConfig): Promise<Container>;
   startContainer(id: string): Promise<void>;
@@ -47,12 +51,13 @@ export class DockerOperationError extends Error {
   }
 }
 
-export class DockerServiceImpl implements DockerService {
+export class DockerServiceImpl extends EventEmitter implements DockerService {
   private docker: Docker;
   private connectionRetries = 3;
   private connectionTimeout = 5000;
 
   constructor(options?: Docker.DockerOptions) {
+    super();
     this.docker = new Docker(options);
   }
 
@@ -104,7 +109,7 @@ export class DockerServiceImpl implements DockerService {
 
       const containerInfo = await this.executeWithRetry(() => container.inspect());
 
-      return {
+      const containerData = {
         id: containerInfo.Id,
         name: containerInfo.Name.replace(/^\//, ''),
         status: this.mapContainerStatus(containerInfo.State.Status),
@@ -113,6 +118,11 @@ export class DockerServiceImpl implements DockerService {
         ports: config.ports,
         volumes: config.volumes
       };
+
+      // Emit container created event
+      this.emit('container:created', containerData.id, containerData.name);
+
+      return containerData;
     } catch (error) {
       throw new DockerOperationError(
         `Failed to create container ${config.name}`,
@@ -124,7 +134,14 @@ export class DockerServiceImpl implements DockerService {
   async startContainer(id: string): Promise<void> {
     try {
       const container = this.docker.getContainer(id);
+      const containerInfo = await this.executeWithRetry(() => container.inspect());
+      const containerName = containerInfo.Name.replace(/^\//, '');
+      
       await this.executeWithRetry(() => container.start());
+      
+      // Emit container started event
+      this.emit('container:started', id, containerName);
+      this.emit('container:status', id, containerName, 'running', containerInfo.State.Status);
     } catch (error) {
       throw new DockerOperationError(
         `Failed to start container ${id}`,
@@ -136,7 +153,14 @@ export class DockerServiceImpl implements DockerService {
   async stopContainer(id: string): Promise<void> {
     try {
       const container = this.docker.getContainer(id);
+      const containerInfo = await this.executeWithRetry(() => container.inspect());
+      const containerName = containerInfo.Name.replace(/^\//, '');
+      
       await this.executeWithRetry(() => container.stop());
+      
+      // Emit container stopped event
+      this.emit('container:stopped', id, containerName);
+      this.emit('container:status', id, containerName, 'stopped', containerInfo.State.Status);
     } catch (error) {
       throw new DockerOperationError(
         `Failed to stop container ${id}`,
@@ -160,7 +184,13 @@ export class DockerServiceImpl implements DockerService {
   async removeContainer(id: string): Promise<void> {
     try {
       const container = this.docker.getContainer(id);
+      const containerInfo = await this.executeWithRetry(() => container.inspect());
+      const containerName = containerInfo.Name.replace(/^\//, '');
+      
       await this.executeWithRetry(() => container.remove({ force: true }));
+      
+      // Emit container removed event
+      this.emit('container:removed', id, containerName);
     } catch (error) {
       throw new DockerOperationError(
         `Failed to remove container ${id}`,

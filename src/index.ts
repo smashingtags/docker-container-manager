@@ -7,6 +7,9 @@ import { errorHandler, notFoundHandler, rateLimiters } from '@/api/middleware';
 import { DockerServiceImpl } from '@/services/docker.service';
 import { DatabaseServiceImpl } from '@/services/database.service';
 import { WebSocketServiceImpl } from '@/services/websocket.service';
+import { WebSocketEventManagerImpl } from '@/services/websocket-event-manager';
+import { RealTimeMonitoringServiceImpl } from '@/services/realtime-monitoring.service';
+import { MonitoringServiceImpl } from '@/modules/monitoring/monitoring.service';
 import { logger } from '@/utils/logger';
 
 class Application {
@@ -15,6 +18,9 @@ class Application {
   private dockerService: DockerServiceImpl;
   private databaseService: DatabaseServiceImpl;
   private websocketService: WebSocketServiceImpl;
+  private monitoringService: MonitoringServiceImpl;
+  private websocketEventManager: WebSocketEventManagerImpl;
+  private realTimeMonitoring: RealTimeMonitoringServiceImpl;
 
   constructor() {
     this.app = express();
@@ -24,6 +30,18 @@ class Application {
     this.dockerService = new DockerServiceImpl();
     this.databaseService = new DatabaseServiceImpl();
     this.websocketService = new WebSocketServiceImpl(this.server);
+    this.monitoringService = new MonitoringServiceImpl(this.dockerService);
+    this.websocketEventManager = new WebSocketEventManagerImpl(
+      this.websocketService,
+      this.dockerService,
+      this.monitoringService
+    );
+    this.realTimeMonitoring = new RealTimeMonitoringServiceImpl(
+      this.websocketService,
+      this.dockerService,
+      this.monitoringService,
+      this.websocketEventManager
+    );
   }
 
   private setupMiddleware(): void {
@@ -73,6 +91,12 @@ class Application {
       await this.websocketService.initialize();
       logger.info('WebSocket service initialized');
       
+      await this.websocketEventManager.initialize();
+      logger.info('WebSocket event manager initialized');
+      
+      await this.realTimeMonitoring.initialize();
+      logger.info('Real-time monitoring service initialized');
+      
     } catch (error) {
       logger.error('Failed to initialize services:', error);
       throw error;
@@ -115,6 +139,8 @@ class Application {
         }
 
         // Cleanup services
+        await this.realTimeMonitoring.destroy();
+        await this.websocketEventManager.destroy();
         await this.websocketService.destroy();
         await this.dockerService.destroy();
         await this.databaseService.destroy();

@@ -7,6 +7,9 @@ export * from './app.types';
 // API types
 export * from './api.types';
 
+// WebSocket types
+export * from './websocket.types';
+
 // Plugin types
 export interface PluginContext {
   logger: any;

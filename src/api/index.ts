@@ -4,6 +4,7 @@ import { sanitize } from './middleware/validation.middleware';
 import healthRoutes from './routes/health';
 import containerRoutes from './routes/containers';
 import appstoreRoutes from './routes/appstore';
+import websocketRoutes from './routes/websocket';
 
 export interface APIModule {
   registerRoutes(router: Router): void;
@@ -24,6 +25,9 @@ export function createAPIRouter(): Router {
   
   // Register app store routes
   router.use('/apps', appstoreRoutes);
+  
+  // Register WebSocket routes
+  router.use('/websocket', websocketRoutes);
   
   // Future route modules will be registered here
   // Example: router.use('/monitoring', monitoringRoutes);

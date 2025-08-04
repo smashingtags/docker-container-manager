@@ -7,6 +7,7 @@ A web-based Docker container management platform that provides an app store-like
 - **App Store Experience**: Browse and deploy containers like installing apps
 - **Container Management**: Web-based interface for container lifecycle operations
 - **Real-time Monitoring**: Live metrics and log streaming with WebSocket support
+- **Real-time Communication**: Socket.io-based WebSocket events for instant updates
 - **Configuration Management**: Backup and restore container configurations
 - **Plugin System**: Extensible architecture for custom functionality
 - **Security**: JWT-based authentication with role-based access control
@@ -53,6 +54,17 @@ docker-container-manager/
 - **Jest**: Unit and integration testing
 - **Playwright**: End-to-end testing
 - **ts-node-dev**: Development server with hot reload
+
+### Key Dependencies
+- **dockerode**: Docker Engine API client for container management
+- **express**: Web application framework with modular routing
+- **socket.io**: Real-time bidirectional WebSocket communication
+- **socket.io-client**: Client-side WebSocket library for testing
+- **sqlite3**: Embedded database for configuration storage
+- **joi**: Schema validation for API requests and data validation
+- **winston**: Structured logging with multiple output formats
+- **bcryptjs**: Password hashing for authentication
+- **jsonwebtoken**: JWT token generation and validation
 
 ## Development Setup
 
@@ -150,6 +162,125 @@ The API layer includes comprehensive integration tests covering:
 - **Network Driver Testing**: Custom network creation tests with different Docker network drivers (bridge, overlay)
 - **Permission Validation**: Volume mount testing with file system permissions and accessibility checks
 
+## Real-time Communication
+
+The application includes comprehensive WebSocket support for real-time updates and monitoring:
+
+### WebSocket Events
+
+The system supports the following real-time events:
+
+#### Container Events
+- `container:status` - Container status changes (running, stopped, paused, etc.)
+- `container:created` - New container creation
+- `container:started` - Container startup
+- `container:stopped` - Container shutdown
+- `container:removed` - Container removal
+- `container:logs` - Real-time log streaming
+
+#### Metrics Events
+- `metrics:container` - Individual container resource usage
+- `metrics:system` - System-wide resource metrics
+
+#### General Events
+- `connected` - Client connection established
+- `disconnected` - Client disconnection
+- `error` - Error notifications
+
+### WebSocket Rooms
+
+Clients can subscribe to specific rooms for targeted updates:
+
+- `containers` - General container updates
+- `metrics` - System and container metrics
+- `logs` - Container logs
+- `container:${id}` - Specific container updates
+- `logs:${id}` - Specific container logs
+
+### Event Data Structure
+
+#### Container Status Event
+```typescript
+{
+  containerId: string;
+  containerName: string;
+  status: 'running' | 'stopped' | 'paused' | 'restarting' | 'created' | 'exited';
+  previousStatus?: string;
+  timestamp: string;
+}
+```
+
+#### Container Metrics Event
+```typescript
+{
+  containerId: string;
+  containerName: string;
+  timestamp: string;
+  metrics: {
+    cpu: number;
+    memory: {
+      usage: number;
+      limit: number;
+      percentage: number;
+    };
+    network: {
+      rx_bytes: number;
+      tx_bytes: number;
+    };
+    disk: {
+      read_bytes: number;
+      write_bytes: number;
+    };
+  };
+}
+```
+
+#### System Metrics Event
+```typescript
+{
+  timestamp: string;
+  metrics: {
+    cpu: {
+      usage: number;
+      cores: number;
+    };
+    memory: {
+      total: number;
+      used: number;
+      free: number;
+      percentage: number;
+    };
+    disk: {
+      total: number;
+      used: number;
+      free: number;
+      percentage: number;
+    };
+    containers: {
+      total: number;
+      running: number;
+      stopped: number;
+    };
+  };
+}
+```
+
+### Client Subscription
+
+Clients can customize their subscription preferences:
+
+```typescript
+{
+  rooms: ['containers', 'metrics', 'container:abc123'];
+  containerId?: string;
+  metricsInterval?: number; // milliseconds
+}
+```
+
+### WebSocket Connection
+
+Connect to the WebSocket endpoint at `/api/ws` to receive real-time updates. The connection supports room-based subscriptions for efficient event filtering and customizable metrics intervals for performance optimization.
+
 ## Configuration
 
 ### Environment Variables
@@ -244,8 +375,8 @@ The REST API provides the following endpoints:
 - `POST /api/apps/:id/deploy` - Deploy application with custom configuration ✅
 - `POST /api/apps/templates/validate` - Validate app template ✅
 
-### Monitoring (Planned)
-- `WebSocket /api/ws` - Real-time updates
+### Real-time Communication
+- `WebSocket /api/ws` - Real-time updates and event streaming ✅
 
 ### API Features
 - **Request Validation**: Comprehensive Joi-based validation for all endpoints
