@@ -17,7 +17,7 @@ A web-based Docker container management platform that provides an app store-like
 
 ```
 docker-container-manager/
-├── src/                          # Source code
+├── src/                          # Backend source code
 │   ├── api/                      # API Gateway and routing
 │   ├── modules/                  # Core business logic modules
 │   │   ├── containers/           # Container management
@@ -29,6 +29,23 @@ docker-container-manager/
 │   ├── types/                    # TypeScript type definitions
 │   ├── utils/                    # Utility functions
 │   └── plugins/                  # Plugin system
+├── web/                          # Frontend React application
+│   ├── src/
+│   │   ├── components/           # Reusable UI components
+│   │   │   ├── containers/       # Container-specific components
+│   │   │   │   └── ContainerCard.tsx  # Container display card
+│   │   │   ├── common/           # Shared UI components
+│   │   │   └── appstore/         # App store components
+│   │   ├── pages/                # Page components
+│   │   ├── hooks/                # Custom React hooks
+│   │   ├── stores/               # Zustand state stores
+│   │   ├── services/             # API client services
+│   │   └── types/                # Frontend type definitions
+│   ├── public/                   # Static assets
+│   └── package.json
+├── templates/                    # App templates and configurations
+│   ├── categories/               # Template categories
+│   └── apps/                     # Individual app templates
 ├── data/                         # Runtime data storage
 │   ├── config/                   # Configuration files
 │   ├── logs/                     # Application logs
@@ -54,6 +71,12 @@ docker-container-manager/
 - **Jest**: Unit and integration testing
 - **Playwright**: End-to-end testing
 - **ts-node-dev**: Development server with hot reload
+
+### Frontend
+- **Framework**: React with TypeScript
+- **State Management**: Zustand (lightweight alternative to Redux)
+- **UI Components**: Tailwind CSS with Headless UI
+- **Real-time**: Socket.io client for live updates
 
 ### Key Dependencies
 - **dockerode**: Docker Engine API client for container management
@@ -116,6 +139,59 @@ docker-container-manager/
 ### Production
 - `npm run build` - Build TypeScript to JavaScript
 - `npm start` - Start production server
+
+## UI Components
+
+The frontend includes reusable React components built with TypeScript and Tailwind CSS:
+
+### ContainerCard Component
+
+The `ContainerCard` component provides a comprehensive display for Docker containers with the following features:
+
+#### Key Features
+- **Status Indicators**: Color-coded visual feedback for container states
+  - Running: Green indicator and badge
+  - Stopped: Red indicator and badge  
+  - Paused: Yellow indicator and badge
+  - Restarting: Blue indicator and badge
+- **Container Actions**: Context-aware action buttons
+  - Start button for stopped containers
+  - Stop button for running containers
+  - Restart button always available
+- **Metrics Display**: Real-time CPU and memory usage when available
+- **Port Information**: Display of port mappings with protocol information
+  - Shows up to 3 ports with overflow indicator for additional ports
+  - Format: `hostPort:containerPort/protocol`
+- **Container Details**: Name, image, and creation date
+- **Interactive Design**: Click to select with visual feedback
+- **Responsive Layout**: Tailwind CSS styling with hover effects
+
+#### Component Interface
+```typescript
+interface ContainerCardProps {
+  container: Container;
+  onAction: (containerId: string, action: string) => void;
+  onSelect: (container: Container) => void;
+  isSelected?: boolean;
+}
+```
+
+#### Usage Example
+```tsx
+<ContainerCard
+  container={containerData}
+  onAction={(id, action) => handleContainerAction(id, action)}
+  onSelect={(container) => setSelectedContainer(container)}
+  isSelected={selectedContainer?.id === containerData.id}
+/>
+```
+
+#### Visual Design
+- Clean card layout with subtle shadows and borders
+- Selected state with blue border and ring effect
+- Hover effects for better interactivity
+- Proper event propagation handling for nested actions
+- Responsive grid layout for metrics display
 
 ## Testing Strategy
 
